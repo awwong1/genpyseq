@@ -66,9 +66,9 @@ class CharDataset(Dataset):
 class CharSequenceToTensor(object):
     """Convert text sequence in sample to Tensors."""
 
-    def __init__(self, num_chars=len(CHARACTERS), device=torch.device("cpu")):
+    def __init__(self, num_chars=len(CHARACTERS), cuda=False):
         super(CharSequenceToTensor, self).__init__()
-        self.device = device
+        self.cuda = cuda
         self.num_chars = num_chars
 
     def __call__(self, sample):
@@ -76,15 +76,15 @@ class CharSequenceToTensor(object):
         in_char_seq, target_char_seq = sample
         window_size = len(in_char_seq)
 
-        input_seq_tensor = torch.zeros(
-            window_size, 1, self.num_chars, device=self.device)
-        target_seq_tensor = torch.zeros(
-            window_size, 1, self.num_chars, device=self.device)
+        input_seq_tensor = torch.zeros(window_size, 1, self.num_chars)
+        target_seq_tensor = torch.zeros(window_size, 1, self.num_chars)
 
         for seq_idx, seq_item in enumerate(in_char_seq):
             input_seq_tensor[seq_idx][0][CHAR2INT[seq_item]] = 1
             target_item = target_char_seq[seq_idx]
             target_seq_tensor[seq_idx][0][CHAR2INT[target_item]] = 1
+        if self.cuda:
+            return input_seq_tensor.cuda(), target_seq_tensor.cuda()
         return input_seq_tensor, target_seq_tensor
 
 

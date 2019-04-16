@@ -38,16 +38,14 @@ def main(
             recurrent_type=recurrent_type, recurrent_layers=recurrent_layers,
             recurrent_dropout=recurrent_dropout)
 
-        device = torch.device("cpu")
         if use_cuda:
             nn.cuda()
-            device = torch.device("cuda")
 
         # Instantiate the dataset
         ds = CharDataset(
             max_window_size=window_size,
             transform=transforms.Compose(
-                [CharSequenceToTensor(device=device), ]))
+                [CharSequenceToTensor(cuda=use_cuda), ]))
 
         # Train our model
         train_full(nn, ds, learning_rate=learning_rate,
