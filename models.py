@@ -10,8 +10,11 @@ class CharRNN(nn.Module):
     """
 
     def __init__(self, input_size, output_size,
-                 hidden_size=128, recurrent_type="LSTM", recurrent_layers=1, recurrent_dropout=0):
+                 hidden_size=128, recurrent_type="LSTM", recurrent_layers=1, recurrent_dropout=0,
+                 use_cuda=False):
         super(CharRNN, self).__init__()
+
+        self.use_cuda = use_cuda
 
         self.recurrent_type = recurrent_type.upper()
         self.hidden_size = hidden_size
@@ -43,15 +46,22 @@ class CharRNN(nn.Module):
         output = self.softmax(for_softmax)
         return output, hidden
 
-    def init_hidden(self, batch_size, device=torch.device("cpu")):
+    def init_hidden(self, batch_size):
         if self.recurrent_type == "LSTM":
+            if self.use_cuda:
+                return (
+                    torch.zeros(self.recurrent_layers, batch_size, self.hidden_size).cuda(),
+                    torch.zeros(self.recurrent_layers, batch_size, self.hidden_size).cuda()
+                )
             return (
-                torch.zeros(self.recurrent_layers, batch_size,
-                            self.hidden_size, device=device),
-                torch.zeros(self.recurrent_layers, batch_size,
-                            self.hidden_size, device=device)
+                torch.zeros(self.recurrent_layers, batch_size, self.hidden_size),
+                torch.zeros(self.recurrent_layers, batch_size, self.hidden_size)
             )
-        return torch.zeros(self.recurrent_layers, batch_size, self.hidden_size, device=device)
+
+        hidden = torch.zeros(self.recurrent_layers, batch_size, self.hidden_size, device=device)
+        if self.use_cuda:
+            return hidden.cuda()
+        return hidden
 
     def save(self, epoch=0, loss=0, interrupted=False):
         """Save the model state dictionary"""

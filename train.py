@@ -89,7 +89,7 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128):
     val_len = len(dataset) - train_len
 
     train_ds, val_ds = torch.utils.data.random_split(dataset, (train_len, val_len))
-    os_cpus = len(os.sched_getaffinity(0))
+    os_cpus = min(4, len(os.sched_getaffinity(0)))
     train_dl = torch.utils.data.DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=os_cpus,
         collate_fn=batch_collate_pairs

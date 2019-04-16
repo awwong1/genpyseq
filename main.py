@@ -30,13 +30,15 @@ def main(
     recurrent_layers=DEFAULT_RECURRENT_LAYERS,
     recurrent_dropout=DEFAULT_RECURRENT_DROPOUT
 ):
+    # https://github.com/pytorch/pytorch/issues/13775
+    torch.multiprocessing.set_start_method("spawn")
     if train == "char":
         # Create the neural network structure
         n_chars = len(CHARACTERS)
         nn = CharRNN(
             n_chars, n_chars, hidden_size=hidden_size,
             recurrent_type=recurrent_type, recurrent_layers=recurrent_layers,
-            recurrent_dropout=recurrent_dropout)
+            recurrent_dropout=recurrent_dropout, use_cuda=use_cuda)
 
         if use_cuda:
             nn.cuda()
