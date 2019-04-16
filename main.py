@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import sys
+import logging
 import argparse
 import torch
 from torchvision import transforms
@@ -6,6 +8,8 @@ from torchvision import transforms
 from datasets import CHARACTERS, CharDataset, CharSequenceToTensor
 from models import CharRNN
 from train import train_full
+
+logger = logging.getLogger("genpyseq")
 
 DEFAULT_RECURRENT_TYPE = "LSTM"
 DEFAULT_RECURRENT_HIDDEN_SIZE = 128
@@ -15,8 +19,10 @@ DEFAULT_LEARNING_RATE = 0.001
 DEFAULT_NUM_EPOCHS = 200
 DEFAULT_BATCH_SIZE = 256
 DEFAULT_WINDOW_SIZE = 20
+DEFAULT_PRINT_EVERY_ITER = 179
 DEFAULT_USE_CUDA = torch.cuda.is_available()
 
+DEFAULT_LOG_LEVEL = "INFO"
 
 def main(
     train=None,
@@ -28,12 +34,19 @@ def main(
     recurrent_type=DEFAULT_RECURRENT_TYPE,
     hidden_size=DEFAULT_RECURRENT_HIDDEN_SIZE,
     recurrent_layers=DEFAULT_RECURRENT_LAYERS,
-    recurrent_dropout=DEFAULT_RECURRENT_DROPOUT
+    recurrent_dropout=DEFAULT_RECURRENT_DROPOUT,
+    print_every_iter=DEFAULT_PRINT_EVERY_ITER,
+    log_level=DEFAULT_LOG_LEVEL
 ):
     # https://github.com/pytorch/pytorch/issues/13775
     torch.multiprocessing.set_start_method("spawn")
+
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    logger.setLevel(log_level)
+
     if train == "char":
         # Create the neural network structure
+        logger.info("Creating the neural network architecture...")
         n_chars = len(CHARACTERS)
         nn = CharRNN(
             n_chars, n_chars, hidden_size=hidden_size,
@@ -44,18 +57,22 @@ def main(
             nn.cuda()
 
         # Instantiate the dataset
+        logger.info("Initializing the dataset...")
         ds = CharDataset(
             max_window_size=window_size,
             transform=transforms.Compose(
                 [CharSequenceToTensor(cuda=use_cuda), ]))
 
         # Train our model
+        logger.info("Training the neural network...")
         train_full(nn, ds, learning_rate=learning_rate,
-                   n_epochs=num_epochs, batch_size=batch_size)
+                   n_epochs=num_epochs, batch_size=batch_size,
+                   print_every=print_every_iter)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Generative models for Python Source Code")
 
     parser.add_argument(
         "--train", help="train model",
@@ -103,6 +120,17 @@ if __name__ == "__main__":
         help="ratio of recurrent units to drop (default: {})".format(
             DEFAULT_RECURRENT_DROPOUT),
         type=float, default=DEFAULT_RECURRENT_DROPOUT)
+    parser.add_argument(
+        "--print-every-iter",
+        help="print training progress every # batch iterations (default: {})".format(
+            DEFAULT_PRINT_EVERY_ITER),
+        type=int, default=DEFAULT_PRINT_EVERY_ITER)
+    parser.add_argument(
+        "-l", "--log", dest="log_level",
+        help="set the logging level (default: {})".format(DEFAULT_LOG_LEVEL),
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default=DEFAULT_LOG_LEVEL)
 
     args = parser.parse_args()
     main(
@@ -115,5 +143,7 @@ if __name__ == "__main__":
         recurrent_type=args.recurrent_type,
         hidden_size=args.hidden_size,
         recurrent_layers=args.recurrent_layers,
-        recurrent_dropout=args.recurrent_dropout
+        recurrent_dropout=args.recurrent_dropout,
+        print_every_iter=args.print_every_iter,
+        log_level=args.log_level
     )

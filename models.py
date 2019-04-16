@@ -48,17 +48,16 @@ class CharRNN(nn.Module):
 
     def init_hidden(self, batch_size):
         if self.recurrent_type == "LSTM":
+            hidden = (torch.zeros(self.recurrent_layers,
+                                  batch_size, self.hidden_size),
+                      torch.zeros(self.recurrent_layers,
+                                  batch_size, self.hidden_size))
             if self.use_cuda:
-                return (
-                    torch.zeros(self.recurrent_layers, batch_size, self.hidden_size).cuda(),
-                    torch.zeros(self.recurrent_layers, batch_size, self.hidden_size).cuda()
-                )
-            return (
-                torch.zeros(self.recurrent_layers, batch_size, self.hidden_size),
-                torch.zeros(self.recurrent_layers, batch_size, self.hidden_size)
-            )
+                return (hidden[0].cuda(), hidden[1].cuda())
+            return hidden
 
-        hidden = torch.zeros(self.recurrent_layers, batch_size, self.hidden_size, device=device)
+        hidden = torch.zeros(self.recurrent_layers,
+                             batch_size, self.hidden_size)
         if self.use_cuda:
             return hidden.cuda()
         return hidden
@@ -69,7 +68,7 @@ class CharRNN(nn.Module):
         if interrupted:
             interrupt = "-INTERRUPTED"
         model_path = ("./models/char{type}{hidden_size}-" +
-                      "layer{layers}-drop{dropout}-loss{loss}-epoch{epoch:03d}{interrupt}").format(
+                      "layer{layers}-drop{dropout}-loss{loss}-epoch{epoch:03d}{interrupt}.pt").format(
             type=self.recurrent_type,
             hidden_size=self.hidden_size,
             layers=self.recurrent_layers,
