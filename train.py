@@ -105,7 +105,7 @@ def train_full(
     # Instantiate the dataset
     logger.info("Initializing the dataset...")
     dataset = CharDataset(
-        data_path="./data/debugging_charseqs.json",  # debugging
+        # data_path="./data/debugging_charseqs.json",  # debugging
         max_window_size=max_window_size,
         transform=transforms.Compose(
             [CharSequenceToTensor(cuda=use_cuda), ]))
