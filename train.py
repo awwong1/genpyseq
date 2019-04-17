@@ -7,8 +7,9 @@ from statistics import mean
 import torch
 from torch.optim import Adam
 from torch.nn import NLLLoss
+from torchvision import transforms
 
-from datasets import batch_collate_pairs
+from datasets import batch_collate_pairs, CharDataset, CharSequenceToTensor
 
 logger = logging.getLogger("genpyseq")
 
@@ -98,13 +99,28 @@ def eval_epoch(nn, val_dl, criterion, start_time=datetime.now(), epoch_num=0):
     return mean_eval_loss, nn
 
 
-def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, print_every=None):
+def train_full(
+        nn, max_window_size=None, learning_rate=0.001, patience_threshold=-1,
+        n_epochs=200, batch_size=128, print_every=None, use_cuda=False):
+    # Instantiate the dataset
+    logger.info("Initializing the dataset...")
+    dataset = CharDataset(
+        data_path="./data/debugging_charseqs.json",  # debugging
+        max_window_size=max_window_size,
+        transform=transforms.Compose(
+            [CharSequenceToTensor(cuda=use_cuda), ]))
+
+    logger.info("Training the neural network...")
+
     logger.info(" • learning rate: {}".format(learning_rate))
     logger.info(" • num epochs: {}".format(n_epochs))
     logger.info(" • batch size: {}".format(batch_size))
+    logger.info(" • max window size: {}".format(max_window_size))
 
     train_epoch_losses = []
     eval_epoch_losses = []
+    patience_counter = 0
+    interrupted = False
 
     train_len = floor(len(dataset) * 0.9)
     val_len = len(dataset) - train_len
@@ -120,7 +136,7 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
             logger.debug(" • {} batch_item of sequence length {}".format(v, k))
         del item_sizes
 
-    logger.info("Dataset split into {} train {} len".format(train_len, val_len))
+    logger.info("Dataset split {}:{}".format(train_len, val_len))
     train_ds, val_ds = torch.utils.data.random_split(
         dataset, (train_len, val_len))
     logger.info(" • train on {} data samples".format(len(train_ds)))
@@ -138,6 +154,7 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
 
     start = datetime.now()
     criterion = NLLLoss()
+    eval_loss = 0
     logger.info("Training started {}".format(start))
     try:
         for epoch in range(n_epochs):
@@ -147,14 +164,37 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
             eval_loss, nn = eval_epoch(nn, val_dl, criterion,
                                        start_time=start,
                                        epoch_num=len(eval_epoch_losses))
+
+            if patience_threshold > 0 and eval_epoch_losses:
+                if eval_loss < min(eval_epoch_losses):
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
             eval_epoch_losses.append(eval_loss)
 
-            nn.save(epoch=epoch, loss=eval_loss)
+            # only save the best models
+            if eval_loss == min(eval_epoch_losses):
+                nn.save(epoch=epoch, loss=eval_loss)
+            if patience_counter >= patience_threshold:
+                logger.info(
+                    "No evaluation loss improvement in {} epochs!".format(patience_counter))
+                break
+
     except KeyboardInterrupt:
         logger.warning("...Interrupted")
-        nn.save(epoch=len(eval_epoch_losses), loss=0, interrupted=True)
+        interrupted = True
     finally:
-        nn.save_progress({
+        model_path = nn.save(epoch=epoch, loss=eval_loss,
+                             interrupted=interrupted)
+        logger.info("State dictionary saved to {}".format(model_path))
+
+        progress_path = nn.save_progress({
+            "net": "{}".format(nn),
+            "max_num_epochs": n_epochs,
+            "batch_size": batch_size,
+            "max_window_size": max_window_size,
+            "patience_threshold": patience_threshold,
             "train_losses": train_epoch_losses,
             "eval_losses": eval_epoch_losses})
-        logger.info("Trainng ended {}".format(datetime.now()))
+        logger.info("Training Progress saved to {}".format(progress_path))
+        logger.info("Training ended {}".format(datetime.now()))

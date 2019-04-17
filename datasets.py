@@ -49,13 +49,19 @@ class CharDataset(Dataset):
         (seq_idx, start_idx) = self.data_idx_to_seq_idxs[idx]
         sample = self.char_sequences[seq_idx]
         window_size = len(sample)
-        if not self.max_window_size is None:
+        if not (self.max_window_size is None):
             window_size = min(self.max_window_size, window_size)
 
         end_idx = start_idx + window_size
-        sample_chunk = sample[start_idx:end_idx]
-        inp_char_seq = sample_chunk[:-1]
-        target_char_seq = sample_chunk[1:]
+        chunk = sample[start_idx:end_idx]
+
+        if self.max_window_size is not None and len(chunk) < self.max_window_size:
+            # right-pad the chunk with PAD characters
+            num_pad = self.max_window_size - len(chunk)
+            chunk = chunk + [PAD,] * num_pad
+
+        inp_char_seq = chunk[:-1]
+        target_char_seq = chunk[1:]
 
         if self.transform:
             return self.transform((inp_char_seq, target_char_seq,))

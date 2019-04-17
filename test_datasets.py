@@ -19,6 +19,8 @@ def test_base_char_dataset():
         assert len(inp_char_seq) == len(target_char_seq)
         assert inp_char_seq[1:] == target_char_seq[:-1]
         file_sizes.append(len(inp_char_seq) + 1)
+        assert inp_char_seq[0] == chr(2)
+        assert target_char_seq[-1] == chr(3)
     assert len(file_sizes) == len(b)
     assert min(file_sizes) == 165
     assert max(file_sizes) == 221
@@ -40,6 +42,22 @@ def test_window_char_dataset():
         assert 1 < len(target_char_seq) < 20
         counter += 1
     assert counter == len(c)
+
+
+def test_padding_dataset():
+    """Test padding character dataset logic"""
+    p = CharDataset(
+        data_path="./data/testcase_charseqs.json",
+        max_window_size=300)
+    # with a max window size of 300, there should be 2 samples
+    assert len(p) == 2
+    for inp_char_seq, target_char_seq in p:
+        assert len(inp_char_seq) == len(target_char_seq)
+        assert inp_char_seq[1:] == target_char_seq[:-1]
+        assert len(inp_char_seq) == 299
+        assert len(target_char_seq) == 299
+        assert inp_char_seq[-1] == chr(0)
+        assert target_char_seq[-1] == chr(0)
 
 
 def test_dataloader_batching():
@@ -90,7 +108,7 @@ def test_dataloader_vocabulary():
             c_idxs = val.view(-1).tolist()
             test_chars = [INT2CHAR[ci] for ci in c_idxs]
             assert test_chars == check_chars[:-1]
-            assert c_idxs[0] == 1 # ensure consistent idx
+            assert c_idxs[0] == 1  # ensure consistent idx
 
             assert tuple(target_tensor.size()) == (220, 1, 100)
             _, val = target_tensor.topk(1)

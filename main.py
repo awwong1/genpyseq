@@ -4,11 +4,11 @@ import sys
 import logging
 import argparse
 import torch
-from torchvision import transforms
 
-from datasets import CHARACTERS, CharDataset, CharSequenceToTensor
+from datasets import FILE_START, CHARACTERS
 from models import CharRNN
 from train import train_full
+from generate import generate_charseq
 
 logger = logging.getLogger("genpyseq")
 
@@ -18,29 +18,36 @@ DEFAULT_RECURRENT_HIDDEN_SIZE = 300
 DEFAULT_RECURRENT_LAYERS = 1
 DEFAULT_RECURRENT_DROPOUT = 0.0
 DEFAULT_LEARNING_RATE = 0.001
-DEFAULT_NUM_EPOCHS = 200
+DEFAULT_NUM_EPOCHS = 2000
+DEFAULT_PATIENCE = 10
 DEFAULT_BATCH_SIZE = 1
 DEFAULT_WINDOW_SIZE = None
 DEFAULT_PRINT_EVERY_ITER = 179
 DEFAULT_DISABLE_CUDA = False
-
+DEFAULT_TEMPERATURE = None
+DEFAULT_MAX_GEN_LEN = 1000
 DEFAULT_LOG_LEVEL = "INFO"
+
 
 def main(
     representation,
     train=None,
     generate=None,
+    temperature=DEFAULT_TEMPERATURE,
+    max_generate_len=DEFAULT_MAX_GEN_LEN,
+    generator_prime_str=FILE_START,
     window_size=DEFAULT_WINDOW_SIZE,
     batch_size=DEFAULT_BATCH_SIZE,
     disable_cuda=DEFAULT_DISABLE_CUDA,
     learning_rate=DEFAULT_LEARNING_RATE,
     num_epochs=DEFAULT_NUM_EPOCHS,
+    patience=DEFAULT_PATIENCE,
     recurrent_type=DEFAULT_RECURRENT_TYPE,
     hidden_size=DEFAULT_RECURRENT_HIDDEN_SIZE,
     recurrent_layers=DEFAULT_RECURRENT_LAYERS,
     recurrent_dropout=DEFAULT_RECURRENT_DROPOUT,
     print_every_iter=DEFAULT_PRINT_EVERY_ITER,
-    log_level=DEFAULT_LOG_LEVEL
+    log_level=DEFAULT_LOG_LEVEL,
 ):
     # https://github.com/pytorch/pytorch/issues/13775
     torch.multiprocessing.set_start_method("spawn")
@@ -60,33 +67,53 @@ def main(
             n_chars, n_chars, hidden_size=hidden_size,
             recurrent_type=recurrent_type, recurrent_layers=recurrent_layers,
             recurrent_dropout=recurrent_dropout, use_cuda=use_cuda)
-
         if use_cuda:
             nn.cuda()
 
         if train:
-            # Instantiate the dataset
-            logger.info("Initializing the dataset...")
-            ds = CharDataset(
-                # data_path="./data/debugging_charseqs.json", # debugging
-                max_window_size=window_size,
-                transform=transforms.Compose(
-                    [CharSequenceToTensor(cuda=use_cuda), ]))
+            # Warn if window_size is None, batch_size should be 1
+            if window_size is None and batch_size is not 1:
+                logger.warning("~" * 40)
+                logger.warning(
+                    "WARN: Undefined window_size with batch_size: {}".format(batch_size))
+                logger.warning(
+                    "\tBatches may not have equal sequence lengths!")
+                logger.warning(
+                    "\tWindow size should be defined when batch_size > 1.")
+                logger.warning("~" * 40)
 
             # Train our model
-            logger.info("Training the neural network...")
-            train_full(nn, ds, learning_rate=learning_rate,
-                    n_epochs=num_epochs, batch_size=batch_size,
-                    print_every=print_every_iter)
+            train_full(nn, max_window_size=window_size,
+                       learning_rate=learning_rate,
+                       n_epochs=num_epochs,
+                       patience_threshold=patience,
+                       batch_size=batch_size,
+                       print_every=print_every_iter,
+                       use_cuda=use_cuda)
+
         elif generate:
+            progress_path = nn.get_progress_path()
             # Load our model
             logger.info("Loading the model weights...")
             path = nn.get_state_dict_path()
             if not os.path.isfile(path):
-                raise FileNotFoundError("Model does not exist at {}".format(path))
+                raise FileNotFoundError(
+                    ("Model does not exist at {}. " +
+                     "Manual model renaming required.").format(path))
             nn.load_state_dict(torch.load(path))
-            nn.eval()
+            nn = nn.eval()
+            generate_charseq(
+                nn, prime_str=generator_prime_str, max_window_size=window_size,
+                max_generate_len=max_generate_len, temperature=temperature)
 
+
+class Range(object):
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+    def __eq__(self, other):
+        return self.start <= other <= self.end
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -102,6 +129,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generate", help="generate source code",
         action="store_true", default=False)
+
+    parser.add_argument(
+        "--temperature",
+        help="value to divide over log probabilities before code generation (default: {})".format(
+            DEFAULT_TEMPERATURE),
+        type=float, choices=[Range(0.0, 1.0)])
+    parser.add_argument(
+        "--max-generate-len",
+        help="maximum number of elements to generate (default: {})".format(DEFAULT_MAX_GEN_LEN),
+        type=int, default=DEFAULT_MAX_GEN_LEN)
+    parser.add_argument(
+        "--generator-prime-str",
+        help="string to prime generator hidden state with (default: {})".format(FILE_START),
+        type=str, default=FILE_START)
 
     parser.add_argument(
         "--window-size",
@@ -125,6 +166,11 @@ if __name__ == "__main__":
         "--num-epochs",
         help="train number of epochs (default: {})".format(DEFAULT_NUM_EPOCHS),
         type=int, default=DEFAULT_NUM_EPOCHS)
+    parser.add_argument(
+        "--patience",
+        help="Early stop if no loss improvement this many epochs (default: {})".format(
+            DEFAULT_PATIENCE),
+        type=int, default=DEFAULT_PATIENCE)
     parser.add_argument(
         "--recurrent-type",
         help="type of recurrent network (default: {})".format(
@@ -163,11 +209,15 @@ if __name__ == "__main__":
         args.representation,
         train=args.train,
         generate=args.generate,
+        temperature=args.temperature,
+        max_generate_len=args.max_generate_len,
+        generator_prime_str=args.generator_prime_str,
         window_size=args.window_size,
         batch_size=args.batch_size,
         disable_cuda=args.disable_cuda,
         learning_rate=args.learning_rate,
         num_epochs=args.num_epochs,
+        patience=args.patience,
         recurrent_type=args.recurrent_type,
         hidden_size=args.hidden_size,
         recurrent_layers=args.recurrent_layers,

@@ -43,6 +43,8 @@ class CharRNN(nn.Module):
         self.decoder = nn.Linear(decoder_units, output_size)
         self.softmax = nn.LogSoftmax(dim=2)
 
+        logger.info("{}".format(self))
+
     def forward(self, inp_val, hidden):
         for_decoder, hidden = self.rnn(inp_val, hidden)
         if self.recurrent_type == "LSTM":
@@ -84,20 +86,23 @@ class CharRNN(nn.Module):
             loss=loss,
             interrupt=interrupt
         )
-        logger.info("State dictionary saved to {}".format(model_path))
         torch.save(self.state_dict(), model_path)
+        return model_path
 
     def save_progress(self, progress_dict):
         """Save the epoch progress dictionary"""
-        progress_path = ("./models/char{type}{hidden_size}-" +
+        progress_path = self.get_progress_path()
+        with open(progress_path, "w") as f:
+            json.dump(progress_dict, f)
+        return progress_path
+
+    def get_progress_path(self):
+        return ("./models/char{type}{hidden_size}-" +
                          "layer{layers}-drop{dropout}.json").format(
             type=self.recurrent_type,
             hidden_size=self.hidden_size,
             layers=self.recurrent_layers,
             dropout=self.recurrent_dropoout)
-        logger.info("Training Progress saved to {}".format(progress_path))
-        with open(progress_path, "w") as f:
-            json.dump(progress_dict, f)
 
     def get_state_dict_path(self):
         model_path = ("./models/char{type}{hidden_size}-" +
