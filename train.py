@@ -15,8 +15,7 @@ logger = logging.getLogger("genpyseq")
 
 def train_step(
         nn, target_tensor, input_tensor, criterion,
-        optimizer=None, eval_only=False, train_iter_accs=[],
-        start_time=time(), print_every=None):
+        optimizer=None, eval_only=False, train_iter_accs=[]):
     """Perform one step of training for an input/target tensor pair.
     """
     window_size, batch_size, _ = input_tensor.size()
@@ -39,10 +38,6 @@ def train_step(
                           target_character.view(-1))
         train_iter_accs.append(float(loss.item()))
 
-        if print_every and len(train_iter_accs) % print_every == 0:
-            logger.info(" • Iter {:1d} ({:.1f}s) | Train Batch Acc: {:.2f}, Loss: {:.5f}".format(
-                len(train_iter_accs), time() - start_time, mean(batch_match), loss))
-
     accuracy = mean(match)
 
     if not eval_only:
@@ -62,12 +57,15 @@ def train_epoch(
     train_losses = []
     for batch in train_dl:
         batch_input_tensor, batch_target_tensor = batch
-        _, train_loss = train_step(
+        accuracy, train_loss = train_step(
             nn, batch_target_tensor, batch_input_tensor, criterion,
             optimizer=optimizer,
-            train_iter_accs=train_iter_accs,
-            start_time=start_time, print_every=print_every)
+            train_iter_accs=train_iter_accs)
         train_losses.append(train_loss)
+
+        if print_every and len(train_iter_accs) % print_every == 0:
+            logger.info(" • Iter {:1d} ({:.1f}s) | Train Batch Acc: {:.2f}, Loss: {:.5f}".format(
+                len(train_iter_accs), time() - start_time, accuracy, train_loss))
 
         del batch_input_tensor
         del batch_target_tensor
@@ -99,6 +97,10 @@ def eval_epoch(nn, val_dl, criterion, start_time=time(), epoch_num=0):
 
 
 def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, print_every=None):
+    logger.info(" • learning rate: {}".format(learning_rate))
+    logger.info(" • num epochs: {}".format(n_epochs))
+    logger.info(" • batch size: {}".format(batch_size))
+
     start = time()
 
     train_epoch_losses = []
@@ -107,8 +109,13 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
     train_len = floor(len(dataset) * 0.9)
     val_len = len(dataset) - train_len
 
+    logger.info(" • {} data samples".format(len(dataset)))
+
     train_ds, val_ds = torch.utils.data.random_split(
         dataset, (train_len, val_len))
+    logger.info("   • train on {} data samples".format(len(train_ds)))
+    logger.info("   • validate on {} data samples".format(len(val_ds)))
+
     os_cpus = min(1, len(os.sched_getaffinity(0)))
     train_dl = torch.utils.data.DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=os_cpus,
