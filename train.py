@@ -37,10 +37,10 @@ def train_step(
 
         loss += criterion(output.view(batch_size, -1),
                           target_character.view(-1))
-        train_iter_accs.append(loss)
+        train_iter_accs.append(float(loss.item()))
 
         if print_every and len(train_iter_accs) % print_every == 0:
-            logger.info(" • Iter {:1d} ({:.1f}s) | TrainIter Acc: {:.2f}, Loss: {:.5f}".format(
+            logger.info(" • Iter {:1d} ({:.1f}s) | Train Batch Acc: {:.2f}, Loss: {:.5f}".format(
                 len(train_iter_accs), time() - start_time, mean(batch_match), loss))
 
     accuracy = mean(match)
@@ -68,6 +68,10 @@ def train_epoch(
             train_iter_accs=train_iter_accs,
             start_time=start_time, print_every=print_every)
         train_losses.append(train_loss)
+
+        del batch_input_tensor
+        del batch_target_tensor
+
     mean_train_loss = mean(train_losses)
     return mean_train_loss
 
@@ -81,6 +85,10 @@ def eval_epoch(nn, val_dl, criterion, start_time=time(), epoch_num=0):
             nn, batch_target_tensor, batch_input_tensor, criterion)
         eval_accuracies.append(eval_accuracy)
         eval_losses.append(eval_loss)
+
+        del batch_input_tensor
+        del batch_target_tensor
+
     mean_eval_loss = mean(eval_losses)
     mean_eval_acc = mean(eval_accuracies)
 
@@ -101,7 +109,7 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
 
     train_ds, val_ds = torch.utils.data.random_split(
         dataset, (train_len, val_len))
-    os_cpus = min(4, len(os.sched_getaffinity(0)))
+    os_cpus = min(1, len(os.sched_getaffinity(0)))
     train_dl = torch.utils.data.DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, num_workers=os_cpus,
         collate_fn=batch_collate_pairs
