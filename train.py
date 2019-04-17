@@ -15,7 +15,7 @@ logger = logging.getLogger("genpyseq")
 
 def train_step(
         nn, target_tensor, input_tensor, criterion,
-        optimizer=None, eval_only=False, train_iter_accs=[]):
+        optimizer=None, eval_only=False):
     """Perform one step of training for an input/target tensor pair.
     """
     window_size, batch_size, _ = input_tensor.size()
@@ -36,7 +36,6 @@ def train_step(
 
         loss += criterion(output.view(batch_size, -1),
                           target_character.view(-1))
-        train_iter_accs.append(float(loss.item()))
 
     accuracy = mean(match)
 
@@ -53,19 +52,18 @@ def evaluate_step(nn, target_tensor, input_tensor, criterion):
 
 def train_epoch(
         nn, train_dl, criterion, optimizer,
-        train_iter_accs=[], start_time=time(), print_every=None):
+        start_time=time(), print_every=None):
     train_losses = []
     for batch in train_dl:
         batch_input_tensor, batch_target_tensor = batch
         accuracy, train_loss = train_step(
             nn, batch_target_tensor, batch_input_tensor, criterion,
-            optimizer=optimizer,
-            train_iter_accs=train_iter_accs)
+            optimizer=optimizer)
         train_losses.append(train_loss)
 
-        if print_every and len(train_iter_accs) % print_every == 0:
+        if print_every and len(train_losses) % print_every == 0:
             logger.info(" • Iter {:1d} ({:.1f}s) | Train Batch Acc: {:.2f}, Loss: {:.5f}".format(
-                len(train_iter_accs), time() - start_time, accuracy, train_loss))
+                len(train_losses), time() - start_time, accuracy, train_loss))
 
         del batch_input_tensor
         del batch_target_tensor
