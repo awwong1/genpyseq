@@ -53,6 +53,7 @@ def evaluate_step(nn, target_tensor, input_tensor, criterion):
 def train_epoch(
         nn, train_dl, criterion, optimizer,
         start_time=time(), print_every=None):
+    nn = nn.train()
     train_losses = []
     for batch in train_dl:
         batch_input_tensor, batch_target_tensor = batch
@@ -73,6 +74,7 @@ def train_epoch(
 
 
 def eval_epoch(nn, val_dl, criterion, start_time=time(), epoch_num=0):
+    nn = nn.eval()
     eval_accuracies = []
     eval_losses = []
     for batch in val_dl:
