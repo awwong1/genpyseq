@@ -1,9 +1,11 @@
 """Recurrent neural networks for Sequence Generation
 """
+import logging
 import json
 import torch
 import torch.nn as nn
 
+logger = logging.getLogger("genpyseq")
 
 class CharRNN(nn.Module):
     """Character level recurrent neural network
@@ -37,11 +39,16 @@ class CharRNN(nn.Module):
         else:
             raise "Invalid recurrent layer type: {}".format(recurrent_type)
 
-        self.decoder = nn.Linear(hidden_size, output_size)
+        decoder_units = 2 * hidden_size
+        self.decoder = nn.Linear(decoder_units, output_size)
         self.softmax = nn.LogSoftmax(dim=2)
 
     def forward(self, inp_val, hidden):
         for_decoder, hidden = self.rnn(inp_val, hidden)
+        if self.recurrent_type == "LSTM":
+            for_decoder = torch.cat((for_decoder, hidden[0]), dim=2)
+        else:
+            for_decoder = torch.cat((for_decoder, hidden), dim=2)
         for_softmax = self.decoder(for_decoder)
         output = self.softmax(for_softmax)
         return output, hidden
@@ -77,6 +84,7 @@ class CharRNN(nn.Module):
             loss=loss,
             interrupt=interrupt
         )
+        logger.info("State dictionary saved to {}".format(model_path))
         torch.save(self.state_dict(), model_path)
 
     def save_progress(self, progress_dict):
@@ -87,6 +95,7 @@ class CharRNN(nn.Module):
             hidden_size=self.hidden_size,
             layers=self.recurrent_layers,
             dropout=self.recurrent_dropoout)
+        logger.info("Training Progress saved to {}".format(progress_path))
         with open(progress_path, "w") as f:
             json.dump(progress_dict, f)
 

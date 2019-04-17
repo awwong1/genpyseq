@@ -68,6 +68,7 @@ def main(
             # Instantiate the dataset
             logger.info("Initializing the dataset...")
             ds = CharDataset(
+                # data_path="./data/debugging_charseqs.json", # debugging
                 max_window_size=window_size,
                 transform=transforms.Compose(
                     [CharSequenceToTensor(cuda=use_cuda), ]))

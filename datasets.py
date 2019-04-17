@@ -10,7 +10,7 @@ VALID_UNICODE_IDS = (0, 2, 3, 9, 10) + tuple(range(32, 127))
 PAD = chr(0)
 FILE_START = chr(2)
 FILE_END = chr(3)
-CHARACTERS = set(chr(id) for id in VALID_UNICODE_IDS)
+CHARACTERS = tuple(chr(id) for id in VALID_UNICODE_IDS)
 INT2CHAR = dict(enumerate(CHARACTERS))
 CHAR2INT = {char: idx for idx, char in INT2CHAR.items()}
 

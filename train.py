@@ -2,7 +2,7 @@
 import logging
 import os
 from math import floor
-from time import time
+from datetime import datetime
 from statistics import mean
 import torch
 from torch.optim import Adam
@@ -51,9 +51,11 @@ def evaluate_step(nn, target_tensor, input_tensor, criterion):
 
 
 def train_epoch(
-        nn, train_dl, criterion, optimizer,
-        start_time=time(), print_every=None):
+        nn, train_dl, criterion, lr=0.001,
+        start_time=datetime.now(), print_every=None):
     nn = nn.train()
+    optimizer = Adam(nn.parameters(), lr=lr)
+
     train_losses = []
     for batch in train_dl:
         batch_input_tensor, batch_target_tensor = batch
@@ -63,17 +65,17 @@ def train_epoch(
         train_losses.append(train_loss)
 
         if print_every and len(train_losses) % print_every == 0:
-            logger.info(" • Iter {:1d} ({:.1f}s) | Train Batch Acc: {:.2f}, Loss: {:.5f}".format(
-                len(train_losses), time() - start_time, accuracy, train_loss))
+            logger.info(" • Iter {:1d} ({}s) | Train Batch Acc: {:.2f}, Loss: {:.5f}".format(
+                len(train_losses), datetime.now() - start_time, accuracy, train_loss))
 
         del batch_input_tensor
         del batch_target_tensor
 
     mean_train_loss = mean(train_losses)
-    return mean_train_loss
+    return mean_train_loss, nn
 
 
-def eval_epoch(nn, val_dl, criterion, start_time=time(), epoch_num=0):
+def eval_epoch(nn, val_dl, criterion, start_time=datetime.now(), epoch_num=0):
     nn = nn.eval()
     eval_accuracies = []
     eval_losses = []
@@ -90,10 +92,10 @@ def eval_epoch(nn, val_dl, criterion, start_time=time(), epoch_num=0):
     mean_eval_loss = mean(eval_losses)
     mean_eval_acc = mean(eval_accuracies)
 
-    logger.info("Epoch {:1d} ({:.1f}s) | Validation Acc: {:.2f}, Loss: {:.5f}".format(
-        epoch_num, time() - start_time, mean_eval_acc, mean_eval_loss))
+    logger.info("Epoch {:1d} ({}s) | Validation Acc: {:.2f}, Loss: {:.5f}".format(
+        epoch_num, datetime.now() - start_time, mean_eval_acc, mean_eval_loss))
 
-    return mean_eval_loss
+    return mean_eval_loss, nn
 
 
 def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, print_every=None):
@@ -101,20 +103,28 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
     logger.info(" • num epochs: {}".format(n_epochs))
     logger.info(" • batch size: {}".format(batch_size))
 
-    start = time()
-
     train_epoch_losses = []
     eval_epoch_losses = []
 
     train_len = floor(len(dataset) * 0.9)
     val_len = len(dataset) - train_len
 
-    logger.info(" • {} data samples".format(len(dataset)))
+    logger.info("Dataset contains {} data samples".format(len(dataset)))
+    if logger.getEffectiveLevel() <= logging.DEBUG:
+        item_sizes = {}
+        for sample in dataset:
+            x_tensor, _ = sample
+            window_size, batch_size, _ = x_tensor.size()
+            item_sizes[window_size] = item_sizes.get(window_size, 0) + 1
+        for k, v in item_sizes.items():
+            logger.debug(" • {} batch_item of sequence length {}".format(v, k))
+        del item_sizes
 
+    logger.info("Dataset split into {} train {} len".format(train_len, val_len))
     train_ds, val_ds = torch.utils.data.random_split(
         dataset, (train_len, val_len))
-    logger.info("   • train on {} data samples".format(len(train_ds)))
-    logger.info("   • validate on {} data samples".format(len(val_ds)))
+    logger.info(" • train on {} data samples".format(len(train_ds)))
+    logger.info(" • validate on {} data samples".format(len(val_ds)))
 
     os_cpus = min(1, len(os.sched_getaffinity(0)))
     train_dl = torch.utils.data.DataLoader(
@@ -126,17 +136,17 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
         collate_fn=batch_collate_pairs
     )
 
+    start = datetime.now()
     criterion = NLLLoss()
-    optimizer = Adam(nn.parameters(), lr=learning_rate)
-
+    logger.info("Training started {}".format(start))
     try:
         for epoch in range(n_epochs):
-            train_loss = train_epoch(
-                nn, train_dl, criterion, optimizer, start_time=start, print_every=print_every)
+            train_loss, nn = train_epoch(
+                nn, train_dl, criterion, lr=learning_rate, start_time=start, print_every=print_every)
             train_epoch_losses.append(train_loss)
-            eval_loss = eval_epoch(nn, val_dl, criterion,
-                                   start_time=start,
-                                   epoch_num=len(eval_epoch_losses))
+            eval_loss, nn = eval_epoch(nn, val_dl, criterion,
+                                       start_time=start,
+                                       epoch_num=len(eval_epoch_losses))
             eval_epoch_losses.append(eval_loss)
 
             nn.save(epoch=epoch, loss=eval_loss)
@@ -147,3 +157,4 @@ def train_full(nn, dataset, learning_rate=0.001, n_epochs=200, batch_size=128, p
         nn.save_progress({
             "train_losses": train_epoch_losses,
             "eval_losses": eval_epoch_losses})
+        logger.info("Trainng ended {}".format(datetime.now()))
