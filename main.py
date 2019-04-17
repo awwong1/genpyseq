@@ -61,7 +61,7 @@ def main(
 
     if representation == "char":
         # Create the neural network structure
-        logger.info("Creating the neural network architecture...")
+        logger.info("Constructing the neural network architecture...")
         n_chars = len(CHARACTERS)
         nn = CharRNN(
             n_chars, n_chars, hidden_size=hidden_size,
@@ -107,13 +107,16 @@ def main(
                 max_generate_len=max_generate_len, temperature=temperature)
 
 
-class Range(object):
+class ArgparseRange(object):
     def __init__(self, start, end):
         self.start = start
         self.end = end
 
     def __eq__(self, other):
         return self.start <= other <= self.end
+
+    def __str__(self):
+        return "[{}, {}]".format(self.start, self.end)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -134,7 +137,7 @@ if __name__ == "__main__":
         "--temperature",
         help="value to divide over log probabilities before code generation (default: {})".format(
             DEFAULT_TEMPERATURE),
-        type=float, choices=[Range(0.0, 1.0)])
+        type=float, choices=[ArgparseRange(0.0, 1.0)])
     parser.add_argument(
         "--max-generate-len",
         help="maximum number of elements to generate (default: {})".format(DEFAULT_MAX_GEN_LEN),

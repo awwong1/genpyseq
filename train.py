@@ -139,8 +139,6 @@ def train_full(
     logger.info("Dataset split {}:{}".format(train_len, val_len))
     train_ds, val_ds = torch.utils.data.random_split(
         dataset, (train_len, val_len))
-    logger.info(" • train on {} data samples".format(len(train_ds)))
-    logger.info(" • validate on {} data samples".format(len(val_ds)))
 
     os_cpus = min(1, len(os.sched_getaffinity(0)))
     train_dl = torch.utils.data.DataLoader(
@@ -151,6 +149,11 @@ def train_full(
         val_ds, batch_size=batch_size, shuffle=True, num_workers=os_cpus,
         collate_fn=batch_collate_pairs
     )
+    logger.info(" • train on {} data samples".format(len(train_ds)))
+    logger.info("   • {} training batches per epoch".format(len(train_dl)))
+
+    logger.info(" • validate on {} data samples".format(len(val_ds)))
+    logger.info("   • {} validation batches per epoch".format(len(val_dl)))
 
     start = datetime.now()
     criterion = NLLLoss()
