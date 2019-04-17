@@ -1,8 +1,10 @@
 import os
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from tokenize import untokenize
 
-from datasets import INT2CHAR, CharDataset, CharSequenceToTensor, batch_collate_pairs
+from datasets import (CharDataset, CharSequenceToTensor,
+                      batch_collate_pairs, TokenDataset)
 
 
 def test_base_char_dataset():
@@ -106,13 +108,38 @@ def test_dataloader_vocabulary():
             assert tuple(inp_tensor.size()) == (220, 1, 100)
             _, val = inp_tensor.topk(1)
             c_idxs = val.view(-1).tolist()
-            test_chars = [INT2CHAR[ci] for ci in c_idxs]
+            test_chars = [d.INT2CHAR[ci] for ci in c_idxs]
             assert test_chars == check_chars[:-1]
             assert c_idxs[0] == 1  # ensure consistent idx
 
             assert tuple(target_tensor.size()) == (220, 1, 100)
             _, val = target_tensor.topk(1)
             c_idxs = val.view(-1).tolist()
-            test_chars = [INT2CHAR[ci] for ci in c_idxs]
+            test_chars = [d.INT2CHAR[ci] for ci in c_idxs]
             assert test_chars == check_chars[1:]
             assert c_idxs[0] == 7
+
+
+# Token dataset tests
+TAB_SNIPPET = '"""Predict Test"""\nimport sys\nfrom os import getcwd\n\ndef main():\n\tsys.stdout.write(getcwd())\n\tfor i in range(0, 10):\n\t\tprint("{} : Boop".format(i), i)\n\treturn False\n\nif __name__ == "__main__":\n\tmain()\n'
+NORMALIZED_SNIPPET = '"""Predict Test"""\nimport sys \nfrom os import getcwd \n\ndef main ():\n    sys .stdout .write (getcwd ())\n    for i in range (0 ,10 ):\n        print ("{} : Boop".format (i ),i )\n    return False \n\nif __name__ =="__main__":\n    main ()\n'
+
+
+def test_text_to_token_conversion():
+    tokens = TokenDataset._convert_text_to_tokens(TAB_SNIPPET)
+    assert len(tokens) == 72
+    assert untokenize(tokens) == NORMALIZED_SNIPPET
+
+
+def test_token_literal_vocabulary_generation():
+    d = TokenDataset(data_path="./data/testcase_charseqs.json",
+                     max_window_size=None,
+                     transform=None)
+    int2literal, literal2int = d.get_literal_vocabulary()
+    assert int2literal[46] == '"""Predict Test"""'
+    assert int2literal[73] == '"__main__"'
+    assert int2literal[66] == '"{} : Boop"'
+    assert len(int2literal) == 83
+    for lit_id, literal in int2literal.items():
+        assert literal2int[literal] == lit_id
+    assert len(literal2int) == 83

@@ -102,6 +102,9 @@ def eval_epoch(nn, val_dl, criterion, start_time=datetime.now(), epoch_num=0):
 def train_full(
         nn, max_window_size=None, learning_rate=0.001, patience_threshold=-1,
         n_epochs=200, batch_size=128, print_every=None, use_cuda=False):
+
+    warn_batch_window_mismatch(max_window_size, batch_size)
+
     # Instantiate the dataset
     logger.info("Initializing the dataset...")
     dataset = CharDataset(
@@ -201,3 +204,16 @@ def train_full(
             "eval_losses": eval_epoch_losses})
         logger.info("Training Progress saved to {}".format(progress_path))
         logger.info("Training ended {}".format(datetime.now()))
+
+
+def warn_batch_window_mismatch(window_size, batch_size):
+    # Warn if window_size is None, batch_size should be 1
+    if window_size is None and batch_size is not 1:
+        logger.warning("~" * 40)
+        logger.warning(
+            "WARN: Undefined window_size with batch_size: {}".format(batch_size))
+        logger.warning(
+            "\tBatches may not have equal sequence lengths!")
+        logger.warning(
+            "\tWindow size should be defined when batch_size > 1.")
+        logger.warning("~" * 40)

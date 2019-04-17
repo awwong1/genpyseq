@@ -5,14 +5,14 @@ import logging
 import argparse
 import torch
 
-from datasets import FILE_START, CHARACTERS
+from datasets import CharDataset
 from models import CharRNN
 from train import train_full
 from generate import generate_charseq
 
 logger = logging.getLogger("genpyseq")
 
-DEFAULT_REPRESENTATION = "code"
+DEFAULT_REPRESENTATION = "char"
 DEFAULT_RECURRENT_TYPE = "LSTM"
 DEFAULT_RECURRENT_HIDDEN_SIZE = 300
 DEFAULT_RECURRENT_LAYERS = 1
@@ -35,7 +35,7 @@ def main(
     generate=None,
     temperature=DEFAULT_TEMPERATURE,
     max_generate_len=DEFAULT_MAX_GEN_LEN,
-    generator_prime_str=FILE_START,
+    generator_prime_str=CharDataset.FILE_START,
     window_size=DEFAULT_WINDOW_SIZE,
     batch_size=DEFAULT_BATCH_SIZE,
     disable_cuda=DEFAULT_DISABLE_CUDA,
@@ -62,7 +62,7 @@ def main(
     if representation == "char":
         # Create the neural network structure
         logger.info("Constructing the neural network architecture...")
-        n_chars = len(CHARACTERS)
+        n_chars = len(CharDataset.CHARACTERS)
         nn = CharRNN(
             n_chars, n_chars, hidden_size=hidden_size,
             recurrent_type=recurrent_type, recurrent_layers=recurrent_layers,
@@ -71,17 +71,6 @@ def main(
             nn.cuda()
 
         if train:
-            # Warn if window_size is None, batch_size should be 1
-            if window_size is None and batch_size is not 1:
-                logger.warning("~" * 40)
-                logger.warning(
-                    "WARN: Undefined window_size with batch_size: {}".format(batch_size))
-                logger.warning(
-                    "\tBatches may not have equal sequence lengths!")
-                logger.warning(
-                    "\tWindow size should be defined when batch_size > 1.")
-                logger.warning("~" * 40)
-
             # Train our model
             train_full(nn, max_window_size=window_size,
                        learning_rate=learning_rate,
@@ -92,19 +81,12 @@ def main(
                        use_cuda=use_cuda)
 
         elif generate:
-            progress_path = nn.get_progress_path()
-            # Load our model
-            logger.info("Loading the model weights...")
-            path = nn.get_state_dict_path()
-            if not os.path.isfile(path):
-                raise FileNotFoundError(
-                    ("Model does not exist at {}. " +
-                     "Manual model renaming required.").format(path))
-            nn.load_state_dict(torch.load(path))
-            nn = nn.eval()
-            generate_charseq(
-                nn, prime_str=generator_prime_str, max_window_size=window_size,
-                max_generate_len=max_generate_len, temperature=temperature)
+            generate_charseq(nn, prime_str=generator_prime_str,
+                             max_window_size=window_size,
+                             max_generate_len=max_generate_len,
+                             temperature=temperature)
+        else:
+            logger.info("train or generate not specified? (See --help)")
 
 
 class ArgparseRange(object):
@@ -117,6 +99,7 @@ class ArgparseRange(object):
 
     def __str__(self):
         return "[{}, {}]".format(self.start, self.end)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -140,12 +123,14 @@ if __name__ == "__main__":
         type=float, choices=[ArgparseRange(0.0, 1.0)])
     parser.add_argument(
         "--max-generate-len",
-        help="maximum number of elements to generate (default: {})".format(DEFAULT_MAX_GEN_LEN),
+        help="maximum number of elements to generate (default: {})".format(
+            DEFAULT_MAX_GEN_LEN),
         type=int, default=DEFAULT_MAX_GEN_LEN)
     parser.add_argument(
         "--generator-prime-str",
-        help="string to prime generator hidden state with (default: {})".format(FILE_START),
-        type=str, default=FILE_START)
+        help="string to prime generator hidden state with (default: {})".format(
+            repr(CharDataset.FILE_START)),
+        type=str, default=CharDataset.FILE_START)
 
     parser.add_argument(
         "--window-size",
