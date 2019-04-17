@@ -20,7 +20,7 @@ DEFAULT_NUM_EPOCHS = 200
 DEFAULT_BATCH_SIZE = 256
 DEFAULT_WINDOW_SIZE = 20
 DEFAULT_PRINT_EVERY_ITER = 179
-DEFAULT_USE_CUDA = torch.cuda.is_available()
+DEFAULT_DISABLE_CUDA = False
 
 DEFAULT_LOG_LEVEL = "INFO"
 
@@ -28,7 +28,7 @@ def main(
     train=None,
     window_size=DEFAULT_WINDOW_SIZE,
     batch_size=DEFAULT_BATCH_SIZE,
-    use_cuda=DEFAULT_USE_CUDA,
+    disable_cuda=DEFAULT_DISABLE_CUDA,
     learning_rate=DEFAULT_LEARNING_RATE,
     num_epochs=DEFAULT_NUM_EPOCHS,
     recurrent_type=DEFAULT_RECURRENT_TYPE,
@@ -43,6 +43,10 @@ def main(
 
     logger.addHandler(logging.StreamHandler(sys.stdout))
     logger.setLevel(log_level)
+
+    use_cuda = torch.cuda.is_available()
+    if disable_cuda:
+        use_cuda = False
 
     if train == "char":
         # Create the neural network structure
@@ -88,8 +92,9 @@ if __name__ == "__main__":
         help="batch size of data (default: {})".format(DEFAULT_BATCH_SIZE),
         type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument(
-        "--use-cuda", help="should model use cuda (default: {})".format(DEFAULT_USE_CUDA),
-        type=bool, default=DEFAULT_USE_CUDA)
+        "--disable-cuda", help="use cpu for model device",
+        action="store_true",
+        default=DEFAULT_DISABLE_CUDA)
     parser.add_argument(
         "--learning-rate",
         help="train optimizer learning rate (default: {})".format(
@@ -137,7 +142,7 @@ if __name__ == "__main__":
         train=args.train,
         window_size=args.window_size,
         batch_size=args.batch_size,
-        use_cuda=args.use_cuda,
+        disable_cuda=args.disable_cuda,
         learning_rate=args.learning_rate,
         num_epochs=args.num_epochs,
         recurrent_type=args.recurrent_type,
