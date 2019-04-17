@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import sys
 import logging
 import argparse
@@ -11,21 +12,24 @@ from train import train_full
 
 logger = logging.getLogger("genpyseq")
 
+DEFAULT_REPRESENTATION = "code"
 DEFAULT_RECURRENT_TYPE = "LSTM"
-DEFAULT_RECURRENT_HIDDEN_SIZE = 128
+DEFAULT_RECURRENT_HIDDEN_SIZE = 300
 DEFAULT_RECURRENT_LAYERS = 1
 DEFAULT_RECURRENT_DROPOUT = 0.0
 DEFAULT_LEARNING_RATE = 0.001
 DEFAULT_NUM_EPOCHS = 200
-DEFAULT_BATCH_SIZE = 256
-DEFAULT_WINDOW_SIZE = 20
+DEFAULT_BATCH_SIZE = 1
+DEFAULT_WINDOW_SIZE = None
 DEFAULT_PRINT_EVERY_ITER = 179
 DEFAULT_DISABLE_CUDA = False
 
 DEFAULT_LOG_LEVEL = "INFO"
 
 def main(
+    representation,
     train=None,
+    generate=None,
     window_size=DEFAULT_WINDOW_SIZE,
     batch_size=DEFAULT_BATCH_SIZE,
     disable_cuda=DEFAULT_DISABLE_CUDA,
@@ -48,7 +52,7 @@ def main(
     if disable_cuda:
         use_cuda = False
 
-    if train == "char":
+    if representation == "char":
         # Create the neural network structure
         logger.info("Creating the neural network architecture...")
         n_chars = len(CHARACTERS)
@@ -60,18 +64,27 @@ def main(
         if use_cuda:
             nn.cuda()
 
-        # Instantiate the dataset
-        logger.info("Initializing the dataset...")
-        ds = CharDataset(
-            max_window_size=window_size,
-            transform=transforms.Compose(
-                [CharSequenceToTensor(cuda=use_cuda), ]))
+        if train:
+            # Instantiate the dataset
+            logger.info("Initializing the dataset...")
+            ds = CharDataset(
+                max_window_size=window_size,
+                transform=transforms.Compose(
+                    [CharSequenceToTensor(cuda=use_cuda), ]))
 
-        # Train our model
-        logger.info("Training the neural network...")
-        train_full(nn, ds, learning_rate=learning_rate,
-                   n_epochs=num_epochs, batch_size=batch_size,
-                   print_every=print_every_iter)
+            # Train our model
+            logger.info("Training the neural network...")
+            train_full(nn, ds, learning_rate=learning_rate,
+                    n_epochs=num_epochs, batch_size=batch_size,
+                    print_every=print_every_iter)
+        elif generate:
+            # Load our model
+            logger.info("Loading the model weights...")
+            path = nn.get_state_dict_path()
+            if not os.path.isfile(path):
+                raise FileNotFoundError("Model does not exist at {}".format(path))
+            nn.load_state_dict(torch.load(path))
+            nn.eval()
 
 
 if __name__ == "__main__":
@@ -79,9 +92,16 @@ if __name__ == "__main__":
         description="Generative models for Python Source Code")
 
     parser.add_argument(
+        "representation",
+        help="Python source code data representation",
+        type=str, choices=["char"])
+    parser.add_argument(
         "--train", help="train model",
-        type=str,
-        choices=["char"])
+        action="store_true", default=False)
+    parser.add_argument(
+        "--generate", help="generate source code",
+        action="store_true", default=False)
+
     parser.add_argument(
         "--window-size",
         help="sequence window upper bound size for data (default: {})".format(
@@ -139,7 +159,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(
+        args.representation,
         train=args.train,
+        generate=args.generate,
         window_size=args.window_size,
         batch_size=args.batch_size,
         disable_cuda=args.disable_cuda,

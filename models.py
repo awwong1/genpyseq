@@ -68,7 +68,7 @@ class CharRNN(nn.Module):
         if interrupted:
             interrupt = "-INTERRUPTED"
         model_path = ("./models/char{type}{hidden_size}-" +
-                      "layer{layers}-drop{dropout}-loss{loss}-epoch{epoch:03d}{interrupt}.pt").format(
+                      "layer{layers}-drop{dropout}-loss{loss:.5f}-epoch{epoch:03d}{interrupt}.pt").format(
             type=self.recurrent_type,
             hidden_size=self.hidden_size,
             layers=self.recurrent_layers,
@@ -89,3 +89,13 @@ class CharRNN(nn.Module):
             dropout=self.recurrent_dropoout)
         with open(progress_path, "w") as f:
             json.dump(progress_dict, f)
+
+    def get_state_dict_path(self):
+        model_path = ("./models/char{type}{hidden_size}-" +
+                      "layer{layers}-drop{dropout}.pt").format(
+            type=self.recurrent_type,
+            hidden_size=self.hidden_size,
+            layers=self.recurrent_layers,
+            dropout=self.recurrent_dropoout,
+        )
+        return model_path
