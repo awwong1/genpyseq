@@ -3,8 +3,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tokenize import untokenize
 
-from datasets import (CharDataset, CharSequenceToTensor,
-                      batch_collate_pairs, TokenDataset)
+from datasets import (batch_collate_pairs, CharDataset,
+                      CharSequenceToTensor, TokenDataset, TokenSequenceToTensor)
 
 
 def test_base_char_dataset():
@@ -103,8 +103,7 @@ def test_dataloader_vocabulary():
     for idx, batch in enumerate(dl):
         inp_tensor, target_tensor = batch
         if idx == 0:
-            check_chars = [
-                "\u0002", "\"", "\"", "\"", "P", "r", "e", "d", "i", "c", "t", " ", "T", "e", "s", "t", "\"", "\"", "\"", "\n", "i", "m", "p", "o", "r", "t", " ", "s", "y", "s", "\n", "f", "r", "o", "m", " ", "o", "s", " ", "i", "m", "p", "o", "r", "t", " ", "g", "e", "t", "c", "w", "d", "\n", "\n", "d", "e", "f", " ", "m", "a", "i", "n", "(", ")", ":", "\n", " ", " ", " ", " ", "s", "y", "s", ".", "s", "t", "d", "o", "u", "t", ".", "w", "r", "i", "t", "e", "(", "g", "e", "t", "c", "w", "d", "(", ")", ")", "\n", " ", " ", " ", " ", "f", "o", "r", " ", "i", " ", "i", "n", " ", "r", "a", "n", "g", "e", "(", "0", ",", " ", "1", "0", ")", ":", "\n", " ", " ", " ", " ", " ", " ", " ", " ", "p", "r", "i", "n", "t", "(", "\"", "{", "}", " ", ":", " ", "B", "o", "o", "p", "\"", ".", "f", "o", "r", "m", "a", "t", "(", "i", ")", ",", " ", "i", ")", "\n", " ", " ", " ", " ", "r", "e", "t", "u", "r", "n", " ", "F", "a", "l", "s", "e", "\n", "\n", "i", "f", " ", "_", "_", "n", "a", "m", "e", "_", "_", " ", "=", "=", " ", "\"", "_", "_", "m", "a", "i", "n", "_", "_", "\"", ":", "\n", " ", " ", " ", " ", "m", "a", "i", "n", "(", ")", "\n", "\u0003"]
+            check_chars = list('\x02"""Predict Test"""\nimport sys\nfrom os import getcwd\n\ndef main():\n    sys.stdout.write(getcwd())\n    for i in range(0, 10):\n        print("{} : Boop".format(i), i)\n    return False\n\nif __name__ == "__main__":\n    main()\n\x03')
             assert tuple(inp_tensor.size()) == (220, 1, 100)
             _, val = inp_tensor.topk(1)
             c_idxs = val.view(-1).tolist()
@@ -127,8 +126,8 @@ NORMALIZED_SNIPPET = '"""Predict Test"""\nimport sys \nfrom os import getcwd \n\
 
 def test_text_to_token_conversion():
     tokens = TokenDataset._convert_text_to_tokens(TAB_SNIPPET)
-    assert len(tokens) == 72
-    assert untokenize(tokens) == NORMALIZED_SNIPPET
+    assert len(tokens) == 73
+    assert TokenDataset.tokens_to_text(tokens) == NORMALIZED_SNIPPET
 
 
 def test_token_literal_vocabulary_generation():
@@ -136,10 +135,44 @@ def test_token_literal_vocabulary_generation():
                      max_window_size=None,
                      transform=None)
     int2literal, literal2int = d.get_literal_vocabulary()
-    assert int2literal[46] == '"""Predict Test"""'
-    assert int2literal[73] == '"__main__"'
-    assert int2literal[66] == '"{} : Boop"'
-    assert len(int2literal) == 83
+    assert int2literal[47] == '"""Predict Test"""'
+    assert int2literal[74] == '"__main__"'
+    assert int2literal[67] == '"{} : Boop"'
+    assert len(int2literal) == 84
     for lit_id, literal in int2literal.items():
         assert literal2int[literal] == lit_id
-    assert len(literal2int) == 83
+    assert len(literal2int) == 84
+
+
+def test_base_token_dataset():
+    b = TokenDataset(data_path="./data/testcase_charseqs.json",
+                     max_window_size=None,
+                     transform=None)
+    # there are 2 files in the testcase dataset
+    assert len(b) == 2
+
+    file_sizes = []
+    for inp_token_seq, target_token_seq in b:
+        assert len(inp_token_seq) == len(target_token_seq)
+        assert inp_token_seq[1:] == target_token_seq[:-1]
+        file_sizes.append(len(inp_token_seq) + 1)
+        assert inp_token_seq[0][0] == b.FILE_START
+        assert target_token_seq[-1][0] == b.FILE_END
+    assert len(file_sizes) == len(b)
+    assert min(file_sizes) == 57
+    assert max(file_sizes) == 73
+
+
+def test_token_tensor_conversion():
+    b = TokenDataset(data_path="./data/testcase_charseqs.json",
+                     max_window_size=None,
+                     transform=transforms.Compose([TokenSequenceToTensor(), ]))
+
+    assert len(b) == 2
+    input_token_tensor, target_token_tensor = b[0]
+    assert tuple(input_token_tensor.size()) == (72, 1, 60, 84)
+    assert tuple(target_token_tensor.size()) == (72, 1, 60, 84)
+
+    input_token_tensor, target_token_tensor = b[1]
+    assert tuple(input_token_tensor.size()) == (56, 1, 60, 84)
+    assert tuple(target_token_tensor.size()) == (56, 1, 60, 84)
