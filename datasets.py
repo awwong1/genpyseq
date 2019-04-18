@@ -280,8 +280,11 @@ class TokenSequenceToTensor(object):
         # sample is an input, target sequence pair of (TYPE_ID, LITERAL_STR)
         in_token_seq, target_token_seq = sample
         window_size = len(in_token_seq)
-        input_token_tensor = torch.zeros(window_size, 1, num_types, num_literals)
-        target_token_tensor = torch.zeros(window_size, 1, num_types, num_literals)
+
+        input_types_tensor = torch.zeros(window_size, 1, num_types)
+        input_literals_tensor = torch.zeros(window_size, 1, num_literals)
+        target_types_tensor = torch.zeros(window_size, 1, num_types)
+        target_literals_tensor = torch.zeros(window_size, 1, num_literals)
 
         for seq_idx in range(window_size):
             input_token_type_id, input_token_literal_val = in_token_seq[seq_idx]
@@ -289,16 +292,19 @@ class TokenSequenceToTensor(object):
                 input_token_literal_id = TokenDataset.LITERAL2INT[input_token_literal_val]
             else:
                 input_token_literal_id = TokenDataset.NON_LITERAL_STUB_ID
-            input_token_tensor[seq_idx][0][input_token_type_id][input_token_literal_id] = 1
+            input_types_tensor[seq_idx][0][input_token_type_id] = 1
+            input_literals_tensor[seq_idx][0][input_token_literal_id] = 1
 
             target_token_type_id, target_token_literal_val = target_token_seq[seq_idx]
             if target_token_type_id not in TokenDataset.EXACT_TOKEN_TYPE_IDS:
                 target_token_literal_id = TokenDataset.LITERAL2INT[target_token_literal_val]
             else:
                 target_token_literal_id = TokenDataset.NON_LITERAL_STUB_ID
-            target_token_literal_id = TokenDataset.LITERAL2INT[target_token_literal_val]
-            target_token_tensor[seq_idx][0][target_token_type_id][target_token_literal_id] = 1
+            target_types_tensor[seq_idx][0][target_token_type_id] = 1
+            target_literals_tensor[seq_idx][0][target_token_literal_id] = 1
 
         if self.cuda:
-            return input_token_tensor.cuda(), target_token_tensor.cuda()
-        return input_token_tensor, target_token_tensor
+            return ((input_types_tensor.cuda(), input_literals_tensor.cuda()),
+                    (target_types_tensor.cuda(), target_literals_tensor.cuda()))
+        return ((input_types_tensor, input_literals_tensor,),
+                (target_types_tensor, target_literals_tensor))

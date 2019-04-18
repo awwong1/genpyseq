@@ -79,6 +79,22 @@
                 "--print-every-iter", "1",
                 "--recurrent-type", "LSTM"
             ]
+        },
+        {
+            "name": "GenPySeq: Main Train Recurrent Layers",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "char",
+                "--train",
+                "--learning-rate", "0.001",
+                "--print-every-iter", "1",
+                "--recurrent-type", "LSTM",
+                "--recurrent-layers", "2",
+                "--recurrent-dropout", "0.8"
+            ]
         }
     ]
 }

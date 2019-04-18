@@ -167,12 +167,35 @@ def test_token_tensor_conversion():
     b = TokenDataset(data_path="./data/testcase_charseqs.json",
                      max_window_size=None,
                      transform=transforms.Compose([TokenSequenceToTensor(), ]))
-
     assert len(b) == 2
-    input_token_tensor, target_token_tensor = b[0]
-    assert tuple(input_token_tensor.size()) == (72, 1, 60, 84)
-    assert tuple(target_token_tensor.size()) == (72, 1, 60, 84)
 
-    input_token_tensor, target_token_tensor = b[1]
-    assert tuple(input_token_tensor.size()) == (56, 1, 60, 84)
-    assert tuple(target_token_tensor.size()) == (56, 1, 60, 84)
+    input_tensors, target_tensors = b[0]
+    input_types_tensor, input_literals_tensor = input_tensors
+    assert tuple(input_types_tensor.size()) == (72, 1, 60)
+    assert tuple(input_literals_tensor.size()) == (72, 1, 84)
+    _, t_idx = input_types_tensor[0].topk(1)
+    assert TokenDataset.INT2TOKENTYPE[t_idx.view(-1).item()] == "STARTMARKER"
+    _, l_idx = input_literals_tensor[0].topk(1)
+    assert TokenDataset.INT2LITERAL[l_idx.view(-1).item()] == chr(0)
+    _, t_idx = input_types_tensor[1].topk(1)
+    assert TokenDataset.INT2TOKENTYPE[t_idx.view(-1).item()] == "STRING"
+    _, l_idx = input_literals_tensor[1].topk(1)
+    assert TokenDataset.INT2LITERAL[l_idx.view(-1).item()] == '"""Predict Test"""'
+    _, t_idx = input_types_tensor[2].topk(1)
+    assert TokenDataset.INT2TOKENTYPE[t_idx.view(-1).item()] == "NEWLINE"
+    _, l_idx = input_literals_tensor[2].topk(1)
+    assert TokenDataset.INT2LITERAL[l_idx.view(-1).item()] == "\n"
+
+    target_types_tensor, target_literals_tensor = target_tensors
+    assert tuple(target_types_tensor.size()) == (72, 1, 60)
+    assert tuple(target_literals_tensor.size()) == (72, 1, 84)
+
+    input_tensors, target_tensors = b[1]
+    input_types_tensor, input_literals_tensor = input_tensors
+    assert tuple(input_types_tensor.size()) == (56, 1, 60)
+    assert tuple(input_literals_tensor.size()) == (56, 1, 84)
+    target_types_tensor, target_literals_tensor = target_tensors
+    assert tuple(target_types_tensor.size()) == (56, 1, 60)
+    assert tuple(target_literals_tensor.size()) == (56, 1, 84)
+
+

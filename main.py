@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-import os
 import sys
 import logging
 import argparse
 import torch
+from torchvision import transforms
 
-from datasets import CharDataset
-from models import CharRNN
-from train import train_full
+from datasets import CharDataset, CharSequenceToTensor, TokenDataset, TokenSequenceToTensor
+from models import CharRNN, TokenRNN
+from train import CharTrainer
 from generate import generate_charseq
 
 logger = logging.getLogger("genpyseq")
@@ -59,27 +59,26 @@ def main(
     if disable_cuda:
         use_cuda = False
 
+    logger.info("Code Representation: {}".format(representation))
+
     if representation == "char":
-        # Create the neural network structure
+        dataset = CharDataset(max_window_size=window_size,
+                              transform=transforms.Compose(
+                                  [CharSequenceToTensor(cuda=use_cuda), ]))
+
         logger.info("Constructing the neural network architecture...")
-        n_chars = len(CharDataset.CHARACTERS)
         nn = CharRNN(
-            n_chars, n_chars, hidden_size=hidden_size,
+            len(dataset.CHARACTERS), hidden_size=hidden_size,
             recurrent_type=recurrent_type, recurrent_layers=recurrent_layers,
             recurrent_dropout=recurrent_dropout, use_cuda=use_cuda)
-        if use_cuda:
-            nn.cuda()
-
         if train:
-            # Train our model
-            train_full(nn, max_window_size=window_size,
-                       learning_rate=learning_rate,
-                       n_epochs=num_epochs,
-                       patience_threshold=patience,
-                       batch_size=batch_size,
-                       print_every=print_every_iter,
-                       use_cuda=use_cuda)
-
+            CharTrainer.train_full(nn, dataset, max_window_size=window_size,
+                                   learning_rate=learning_rate,
+                                   n_epochs=num_epochs,
+                                   patience_threshold=patience,
+                                   batch_size=batch_size,
+                                   print_every=print_every_iter,
+                                   use_cuda=use_cuda)
         elif generate:
             generate_charseq(nn, prime_str=generator_prime_str,
                              max_window_size=window_size,
@@ -87,7 +86,17 @@ def main(
                              temperature=temperature)
         else:
             logger.info("train or generate not specified? (See --help)")
+    elif representation == "token":
+        dataset = TokenDataset(max_window_size=window_size,
+                               transform=transforms.Compose(
+                                   [TokenSequenceToTensor(cuda=use_cuda), ]))
 
+        logger.info("Constructing the neural network architecture...")
+        nn = TokenRNN(
+            len(dataset.INT2TOKENTYPE), len(dataset.INT2LITERAL),
+            hidden_size=hidden_size, recurrent_type=recurrent_type,
+            recurrent_layers=recurrent_layers,
+            recurrent_dropout=recurrent_dropout, use_cuda=use_cuda)
 
 class ArgparseRange(object):
     def __init__(self, start, end):
@@ -108,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "representation",
         help="Python source code data representation",
-        type=str, choices=["char"])
+        type=str, choices=["char", "token"])
     parser.add_argument(
         "--train", help="train model",
         action="store_true", default=False)
@@ -170,16 +179,17 @@ if __name__ == "__main__":
         help="size of recurrent hidden vector (default: {})".format(
             DEFAULT_RECURRENT_HIDDEN_SIZE),
         type=int, default=DEFAULT_RECURRENT_HIDDEN_SIZE)
-    parser.add_argument(
-        "--recurrent-layers",
-        help="number of recurrent layers (default: {})".format(
-            DEFAULT_RECURRENT_LAYERS),
-        type=int, default=DEFAULT_RECURRENT_LAYERS)
-    parser.add_argument(
-        "--recurrent-dropout",
-        help="ratio of recurrent units to drop (default: {})".format(
-            DEFAULT_RECURRENT_DROPOUT),
-        type=float, default=DEFAULT_RECURRENT_DROPOUT)
+    # Only one recurrent layer currently supported
+    # parser.add_argument(
+    #     "--recurrent-layers",
+    #     help="number of recurrent layers (default: {})".format(
+    #         DEFAULT_RECURRENT_LAYERS),
+    #     type=int, default=DEFAULT_RECURRENT_LAYERS)
+    # parser.add_argument(
+    #     "--recurrent-dropout",
+    #     help="ratio of recurrent units to drop (default: {})".format(
+    #         DEFAULT_RECURRENT_DROPOUT),
+    #     type=float, default=DEFAULT_RECURRENT_DROPOUT)
     parser.add_argument(
         "--print-every-iter",
         help="print training progress every # batch iterations (default: {})".format(
@@ -208,8 +218,8 @@ if __name__ == "__main__":
         patience=args.patience,
         recurrent_type=args.recurrent_type,
         hidden_size=args.hidden_size,
-        recurrent_layers=args.recurrent_layers,
-        recurrent_dropout=args.recurrent_dropout,
+        # recurrent_layers=args.recurrent_layers,
+        # recurrent_dropout=args.recurrent_dropout,
         print_every_iter=args.print_every_iter,
         log_level=args.log_level
     )

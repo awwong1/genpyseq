@@ -1,3 +1,4 @@
+import os
 import torch
 import logging
 from datasets import CharDataset, CharSequenceToTensor
@@ -5,7 +6,7 @@ from datasets import CharDataset, CharSequenceToTensor
 logger = logging.getLogger("genpyseq")
 
 def generate_charseq(
-        nn, prime_str=FILE_START, max_window_size=None, print_output=True,
+        nn, prime_str=CharDataset.FILE_START, max_window_size=None, print_output=True,
         max_generate_len=1000, temperature=None):
     progress_path = nn.get_progress_path()
     # Load our model

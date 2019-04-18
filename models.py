@@ -7,11 +7,12 @@ import torch.nn as nn
 
 logger = logging.getLogger("genpyseq")
 
+
 class CharRNN(nn.Module):
     """Character level recurrent neural network
     """
 
-    def __init__(self, input_size, output_size,
+    def __init__(self, num_characters,
                  hidden_size=128, recurrent_type="LSTM", recurrent_layers=1, recurrent_dropout=0,
                  use_cuda=False):
         super(CharRNN, self).__init__()
@@ -24,7 +25,7 @@ class CharRNN(nn.Module):
         self.recurrent_dropoout = recurrent_dropout
 
         rn_kwargs = {
-            "input_size": input_size,
+            "input_size": num_characters,
             "hidden_size": hidden_size,
             "num_layers": recurrent_layers,
             "dropout": recurrent_dropout,
@@ -40,13 +41,16 @@ class CharRNN(nn.Module):
             raise "Invalid recurrent layer type: {}".format(recurrent_type)
 
         decoder_units = 2 * hidden_size
-        self.decoder = nn.Linear(decoder_units, output_size)
+        self.decoder = nn.Linear(decoder_units, num_characters)
         self.softmax = nn.LogSoftmax(dim=2)
 
         logger.info("{}".format(self))
+        if self.use_cuda:
+            self.cuda()
 
     def forward(self, inp_val, hidden):
         for_decoder, hidden = self.rnn(inp_val, hidden)
+        # for_decoder = for_decoder.expand(self.recurrent_layers, 1, -1)
         if self.recurrent_type == "LSTM":
             for_decoder = torch.cat((for_decoder, hidden[0]), dim=2)
         else:
@@ -98,7 +102,7 @@ class CharRNN(nn.Module):
 
     def get_progress_path(self):
         return ("./models/char{type}{hidden_size}-" +
-                         "layer{layers}-drop{dropout}.json").format(
+                "layer{layers}-drop{dropout}.json").format(
             type=self.recurrent_type,
             hidden_size=self.hidden_size,
             layers=self.recurrent_layers,
@@ -113,3 +117,44 @@ class CharRNN(nn.Module):
             dropout=self.recurrent_dropoout,
         )
         return model_path
+
+
+class TokenRNN(nn.Module):
+    """Token level recurrent neural network
+    """
+
+    def __init__(self, num_token_types, num_token_literals,
+                 hidden_size=128, recurrent_type="LSTM", recurrent_layers=1, recurrent_dropout=0,
+                 use_cuda=False):
+        super(TokenRNN, self).__init__()
+        self.use_cuda = use_cuda
+
+        self.recurrent_type = recurrent_type.upper()
+        self.hidden_size = hidden_size
+        self.recurrent_layers = recurrent_layers
+        self.recurrent_dropoout = recurrent_dropout
+
+        rn_kwargs = {
+            "input_size": (num_token_types, num_token_literals),
+            "hidden_size": hidden_size,
+            "num_layers": recurrent_layers,
+            "dropout": recurrent_dropout,
+        }
+
+        if self.recurrent_type == "RNN":
+            self.rnn = nn.RNN(**rn_kwargs)
+        elif self.recurrent_type == "LSTM":
+            self.rnn = nn.LSTM(**rn_kwargs)
+        elif self.recurrent_type == "GRU":
+            self.rnn = nn.GRU(**rn_kwargs)
+        else:
+            raise "Invalid recurrent layer type: {}".format(recurrent_type)
+
+        decoder_units = 2 * hidden_size
+        self.decoder = nn.Linear(
+            decoder_units, (num_token_types, num_token_literals))
+        self.softmax = nn.LogSoftmax(dim=2)
+
+        logger.info("{}".format(self))
+        if self.use_cuda:
+            self.cuda()
