@@ -1,12 +1,19 @@
+import logging
 import json
 import torch
 import math
 import numpy as np
+from datetime import datetime
 from token import ENDMARKER, INDENT, NT_OFFSET, tok_name
 from io import StringIO
 from tokenize import EXACT_TOKEN_TYPES, generate_tokens, untokenize
 from torch.utils.data import Dataset
 from torchvision import transforms
+from multiprocessing import Pool
+
+
+_max_window_size = None
+logger = logging.getLogger("genpyseq")
 
 
 class CharDataset(Dataset):
@@ -35,14 +42,16 @@ class CharDataset(Dataset):
         # construct the window_offset to sequence mapping
         self.data_idx_to_seq_idxs = {}
         data_idx = 0
-        for char_seq_idx, char_sequence in enumerate(self.char_sequences):
-            window_size = len(char_sequence)
-            if not self.max_window_size is None:
-                window_size = min(self.max_window_size, window_size)
-            chunk_windows = range(0, len(char_sequence) - window_size + 1)
-            for start_idx in chunk_windows:
-                self.data_idx_to_seq_idxs[data_idx] = (char_seq_idx, start_idx)
-                data_idx += 1
+        start = datetime.now()
+        with Pool(initializer=CharDataset.initialize_worker, initargs=(self.max_window_size,)) as p:
+            for window_result in p.imap(CharDataset.construct_sliding_indicies, enumerate(self.char_sequences)):
+                char_seq_idx, chunk_windows = window_result
+                logger.info("File {} ({})".format(
+                    char_seq_idx, datetime.now() - start))
+                for start_idx in chunk_windows:
+                    self.data_idx_to_seq_idxs[data_idx] = (
+                        char_seq_idx, start_idx)
+                    data_idx += 1
 
     def __len__(self):
         return len(self.data_idx_to_seq_idxs.keys())
@@ -81,6 +90,24 @@ class CharDataset(Dataset):
         inp_tensor_batch = torch.cat(inp_seq_tensors, dim=1)
         target_tensor_batch = torch.cat(target_seq_tensors, dim=1)
         return (inp_tensor_batch, target_tensor_batch)
+
+    @staticmethod
+    def initialize_worker(max_window_size):
+        global _max_window_size
+        _max_window_size = max_window_size
+
+    @staticmethod
+    def construct_sliding_indicies(idx_sequence_pair):
+        char_seq_idx, char_sequence = idx_sequence_pair
+        if char_sequence[0] != CharDataset.FILE_START:
+            char_sequence.insert(0, CharDataset.FILE_START)
+        if char_sequence[-1] != CharDataset.FILE_END:
+            char_sequence.append(CharDataset.FILE_END)
+        window_size = len(char_sequence)
+        if _max_window_size is not None:
+            window_size = min(_max_window_size, window_size)
+        chunk_windows = range(0, len(char_sequence) - window_size + 1)
+        return char_seq_idx, chunk_windows
 
 
 class CharSequenceToTensor(object):
@@ -164,21 +191,23 @@ class TokenDataset(Dataset):
         # construct the window_offset to sequence mapping
         self.data_idx_to_seq_idxs = {}
         data_idx = 0
-        for char_seq_idx, char_sequence in enumerate(char_sequences):
-            # do not count the FILE_START and FILE_END characters
-            filetext = "".join(char_sequence[1:-1])
-            file_tokens = self._convert_text_to_tokens(filetext)
-            # update the vocabulary lookup table
-            self._append_to_vocabulary(file_tokens)
-            self.token_sequences.append(file_tokens)
+        start = datetime.now()
+        with Pool() as p:
+            for result in p.imap(TokenDataset._convert_text_to_tokens, enumerate(char_sequences)):
+                char_seq_idx, file_tokens = result
+                self._append_to_vocabulary(file_tokens)
+                self.token_sequences.append(file_tokens)
+                logger.info("File {} ({})".format(
+                    char_seq_idx, datetime.now() - start))
 
-            window_size = len(file_tokens)
-            if not self.max_window_size is None:
-                window_size = min(self.max_window_size, window_size)
-            chunk_windows = range(0, len(file_tokens) - window_size + 1)
-            for start_idx in chunk_windows:
-                self.data_idx_to_seq_idxs[data_idx] = (char_seq_idx, start_idx)
-                data_idx += 1
+                window_size = len(file_tokens)
+                if self.max_window_size is not None:
+                    window_size = min(self.max_window_size, window_size)
+                chunk_windows = range(0, len(file_tokens) - window_size + 1)
+                for start_idx in chunk_windows:
+                    self.data_idx_to_seq_idxs[data_idx] = (
+                        char_seq_idx, start_idx)
+                    data_idx += 1
 
     @classmethod
     def _append_to_vocabulary(cls, tokens):
@@ -198,7 +227,14 @@ class TokenDataset(Dataset):
                 cls.INT2LITERAL[tid_new] = t_val
 
     @classmethod
-    def _convert_text_to_tokens(cls, text, tab="    "):
+    def _convert_text_to_tokens(cls, idx_char_sequence, tab="    "):
+        seq_idx, char_sequence = idx_char_sequence
+        if char_sequence[0] == CharDataset.FILE_START:
+            char_sequence = char_sequence[1:]
+        if char_sequence[-1] == CharDataset.FILE_END:
+            char_sequence.pop()
+        text = "".join(char_sequence)
+
         temp_file_readline = StringIO(text).readline
         gen = generate_tokens(temp_file_readline)
         file_tokens = [(cls.FILE_START, cls.INT2TOKENTYPE[cls.FILE_START]), ]
@@ -217,7 +253,7 @@ class TokenDataset(Dataset):
                 if t_type == INDENT:
                     num_indents = math.floor(len(t_val) / _tabsize)
                     file_tokens[ft_idx] = (t_type, tab * num_indents)
-        return file_tokens
+        return seq_idx, file_tokens
 
     def __len__(self):
         return len(self.data_idx_to_seq_idxs.keys())
