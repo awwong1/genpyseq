@@ -7,8 +7,8 @@ from torchvision import transforms
 
 from datasets import CharDataset, CharSequenceToTensor, TokenDataset, TokenSequenceToTensor
 from models import CharRNN, TokenRNN
-from train import CharTrainer
-from generate import generate_charseq
+from train import CharTrainer, TokenTrainer
+from generate import generate_charseq, generate_tokenseq
 
 logger = logging.getLogger("genpyseq")
 
@@ -97,6 +97,22 @@ def main(
             hidden_size=hidden_size, recurrent_type=recurrent_type,
             recurrent_layers=recurrent_layers,
             recurrent_dropout=recurrent_dropout, use_cuda=use_cuda)
+        if train:
+            TokenTrainer.train_full(nn, dataset, max_window_size=window_size,
+                                    learning_rate=learning_rate,
+                                    n_epochs=num_epochs,
+                                    patience_threshold=patience,
+                                    batch_size=batch_size,
+                                    print_every=print_every_iter,
+                                    use_cuda=use_cuda)
+        elif generate:
+            generate_tokenseq(nn, prime_str=generator_prime_str,
+                              max_window_size=window_size,
+                              max_generate_len=max_generate_len,
+                              temperature=temperature)
+        else:
+            logger.info("train or generate not specified? (See --help)")
+
 
 class ArgparseRange(object):
     def __init__(self, start, end):
@@ -138,8 +154,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generator-prime-str",
         help="string to prime generator hidden state with (default: {})".format(
-            repr(CharDataset.FILE_START)),
-        type=str, default=CharDataset.FILE_START)
+            repr("")),
+        type=str, default="")
 
     parser.add_argument(
         "--window-size",

@@ -9,14 +9,6 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 
-def batch_collate_pairs(samples):
-    # samples is a list of (inp_seq_tensor, target_seq_tensor) pairs
-    inp_seq_tensors, target_seq_tensors = zip(*samples)
-    inp_tensor_batch = torch.cat(inp_seq_tensors, dim=1)
-    target_tensor_batch = torch.cat(target_seq_tensors, dim=1)
-    return (inp_tensor_batch, target_tensor_batch)
-
-
 class CharDataset(Dataset):
     """
     Character sequences dataset. Extension of the Karpathy Char RNN blog post.
@@ -81,6 +73,14 @@ class CharDataset(Dataset):
             return self.transform((inp_char_seq, target_char_seq,))
         else:
             return inp_char_seq, target_char_seq
+
+    @staticmethod
+    def batch_collate_pairs(samples):
+        # samples is a list of (inp_seq_tensor, target_seq_tensor) pairs
+        inp_seq_tensors, target_seq_tensors = zip(*samples)
+        inp_tensor_batch = torch.cat(inp_seq_tensors, dim=1)
+        target_tensor_batch = torch.cat(target_seq_tensors, dim=1)
+        return (inp_tensor_batch, target_tensor_batch)
 
 
 class CharSequenceToTensor(object):
@@ -265,6 +265,19 @@ class TokenDataset(Dataset):
     @classmethod
     def get_literal_vocabulary(cls):
         return cls.INT2LITERAL, cls.LITERAL2INT
+
+    @staticmethod
+    def batch_collate_pairs(samples):
+        # samples is a list of (inp_seq_tensors, target_seq_tensors) pairs
+        inp_seq_tensors, target_seq_tensors = zip(*samples)
+        inp_type_tensors, inp_literal_tensors = zip(*inp_seq_tensors)
+        inp_type_batch_tensors = torch.cat(inp_type_tensors, dim=1)
+        inp_literal_batch_tensors = torch.cat(inp_literal_tensors, dim=1)
+        target_type_tensors, target_literal_tensors = zip(*target_seq_tensors)
+        target_type_batch_tensors = torch.cat(target_type_tensors, dim=1)
+        target_literal_batch_tensors = torch.cat(target_literal_tensors, dim=1)
+        return ((inp_type_batch_tensors, inp_literal_batch_tensors),
+                (target_type_batch_tensors, target_literal_batch_tensors))
 
 
 class TokenSequenceToTensor(object):

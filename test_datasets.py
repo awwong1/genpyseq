@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tokenize import untokenize
 
-from datasets import (batch_collate_pairs, CharDataset,
+from datasets import (CharDataset,
                       CharSequenceToTensor, TokenDataset, TokenSequenceToTensor)
 
 
@@ -70,7 +70,7 @@ def test_dataloader_batching():
     dl = DataLoader(
         d, batch_size=128, shuffle=False,
         num_workers=len(os.sched_getaffinity(0)),
-        collate_fn=batch_collate_pairs)
+        collate_fn=CharDataset.batch_collate_pairs)
 
     # With batch size of 128, there are 3 batches (128, 128, 92)
     assert len(dl) == 3
@@ -96,7 +96,7 @@ def test_dataloader_vocabulary():
     dl = DataLoader(
         d, batch_size=1, shuffle=False,
         num_workers=len(os.sched_getaffinity(0)),
-        collate_fn=batch_collate_pairs)
+        collate_fn=CharDataset.batch_collate_pairs)
 
     # with batch size of 1, window size of None, two batches (whole files)
     assert len(dl) == 2

@@ -67,7 +67,7 @@
             "console": "externalTerminal"
         },
         {
-            "name": "GenPySeq: Main Train",
+            "name": "GenPySeq: Char Train",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
@@ -81,19 +81,19 @@
             ]
         },
         {
-            "name": "GenPySeq: Main Train Recurrent Layers",
+            "name": "GenPySeq: Token Train",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "args": [
-                "char",
+                "token",
                 "--train",
                 "--learning-rate", "0.001",
                 "--print-every-iter", "1",
                 "--recurrent-type", "LSTM",
-                "--recurrent-layers", "2",
-                "--recurrent-dropout", "0.8"
+                "--batch-size", "8",
+                "--window-size", "40"
             ]
         }
     ]
