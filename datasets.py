@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import pickle
 import torch
 import math
 import numpy as np
@@ -210,8 +211,8 @@ class TokenDataset(Dataset):
 
         if os.path.isfile("tokencache"):
             logger.info("loading from tokencache")
-            with open("tokencache", "r") as f:
-                tokencache = json.load(f)
+            with open("tokencache", "rb") as f:
+                tokencache = pickle.load(f)
             TokenDataset.LITERAL2INT = tokencache["LITERAL2INT"]
             TokenDataset.INT2LITERAL = {
                 lit_id: lit_val for lit_val, lit_id in TokenDataset.LITERAL2INT.items()}
@@ -232,9 +233,9 @@ class TokenDataset(Dataset):
                     self.data_idx_to_seq_idxs[data_idx] = (seq_idx, start_idx)
                     data_idx += 1
             if enable_token_cache:
-                with open("tokencache", "w") as f:
+                with open("tokencache", "wb") as f:
                     logger.info("saving to tokencache")
-                    json.dump({
+                    pickle.dump({
                         "LITERAL2INT": self.LITERAL2INT,
                         "data_idx_to_seq_idxs": self.data_idx_to_seq_idxs
                     }, f)
