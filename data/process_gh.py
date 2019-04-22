@@ -73,6 +73,7 @@ def main():
     files_to_evaluate = glob(raw_files_path)
     # evaluated_files = {}
     files_chars = []
+    files_tokens = []
     num_files = 0
     num_chars = 0
     num_tokens = 0
@@ -94,12 +95,15 @@ def main():
                         logger.info("{} ({}) f: {} c: {} t: {}".format(base_name, datetime.now() - start, num_files, num_chars, num_tokens))
                         file_chars = (chr(2), ) + tuple(content) + (chr(3),)
                         files_chars.append(file_chars)
+                        files_tokens.append(tokens)
         # evaluated_path = os.path.join(dir_path, "gh_processed", base_name)
         # with open(evaluated_path, "w") as f:
         #     json.dump(evaluated_files, f)
         # evaluated_files = {}
     with open("charseqs.json", "w") as f:
         json.dump(files_chars, f, separators=(',',':'))
+    with open("tokenseqs.json", "w") as f:
+        json.dump(files_tokens, f, separators=(",",":"))
 
 
 

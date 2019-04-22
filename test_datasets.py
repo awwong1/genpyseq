@@ -125,9 +125,8 @@ NORMALIZED_SNIPPET = '"""Predict Test"""\nimport sys \nfrom os import getcwd \n\
 
 
 def test_text_to_token_conversion():
-    seq_idx, tokens = TokenDataset._convert_text_to_tokens((0, tuple(TAB_SNIPPET)))
+    tokens = TokenDataset._convert_text_to_tokens(tuple(TAB_SNIPPET))
     assert len(tokens) == 73
-    assert seq_idx == 0
     assert TokenDataset.tokens_to_text(tokens) == NORMALIZED_SNIPPET
 
 

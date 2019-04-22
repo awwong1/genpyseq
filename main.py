@@ -33,6 +33,7 @@ def main(
     representation,
     train=None,
     generate=None,
+    data_path="./data/charseqs.json",
     temperature=DEFAULT_TEMPERATURE,
     max_generate_len=DEFAULT_MAX_GEN_LEN,
     generator_prime_str=CharDataset.FILE_START,
@@ -63,6 +64,7 @@ def main(
 
     if representation == "char":
         dataset = CharDataset(max_window_size=window_size,
+                              data_path=data_path,
                               transform=transforms.Compose(
                                   [CharSequenceToTensor(cuda=use_cuda), ]))
 
@@ -88,6 +90,7 @@ def main(
             logger.info("train or generate not specified? (See --help)")
     elif representation == "token":
         dataset = TokenDataset(max_window_size=window_size,
+                               data_path=data_path,
                                transform=transforms.Compose(
                                    [TokenSequenceToTensor(cuda=use_cuda), ]))
 
@@ -140,6 +143,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--generate", help="generate source code",
         action="store_true", default=False)
+    parser.add_argument(
+        "--data-path", help="path to json data file of sequences",
+        action="store", default="./data/charseqs.json"
+    )
 
     parser.add_argument(
         "--temperature",
@@ -223,6 +230,7 @@ if __name__ == "__main__":
         args.representation,
         train=args.train,
         generate=args.generate,
+        data_path=args.data_path,
         temperature=args.temperature,
         max_generate_len=args.max_generate_len,
         generator_prime_str=args.generator_prime_str,

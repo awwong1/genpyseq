@@ -176,38 +176,51 @@ class TokenDataset(Dataset):
     del _LITERAL_TOKENS
     del _TOKEN_IDS_TO_TYPE
 
-    def __init__(self, data_path="./data/charseqs.json", max_window_size=None, transform=None):
+    def __init__(self, data_path="./data/tokenseqs.json", max_window_size=None, transform=None):
         super(TokenDataset, self).__init__()
 
         self.max_window_size = max_window_size
         self.transform = transform
         self.token_sequences = []
 
-        # load the raw character json file
+        start = datetime.now()
+
+        # load the raw json file
+        logger.info("loading data file")
         with open(data_path, "r") as f:
-            char_sequences = json.load(f)
+            sequences = json.load(f)
+        if len(sequences[0][0]) == 2:
+            # these are token sequnces
+            self.token_sequences = sequences
+            logger.info("likely tokens")
+        else:
+            # these are character sequences
+            logger.info("likely characters")
+            with Pool() as p:
+                for tokens in p.imap(TokenDataset._convert_text_to_tokens, sequences):
+                    self.token_sequences.append(tokens)
+                    logger.info("File {} ({})".format(
+                        len(self.token_sequences), datetime.now() - start))
 
         # convert each file into a sequence of Python tokens
         # construct the window_offset to sequence mapping
         self.data_idx_to_seq_idxs = {}
         data_idx = 0
-        start = datetime.now()
-        with Pool() as p:
-            for result in p.imap(TokenDataset._convert_text_to_tokens, enumerate(char_sequences)):
-                char_seq_idx, file_tokens = result
-                self._append_to_vocabulary(file_tokens)
-                self.token_sequences.append(file_tokens)
-                logger.info("File {} ({})".format(
-                    char_seq_idx, datetime.now() - start))
 
-                window_size = len(file_tokens)
-                if self.max_window_size is not None:
-                    window_size = min(self.max_window_size, window_size)
-                chunk_windows = range(0, len(file_tokens) - window_size + 1)
-                for start_idx in chunk_windows:
-                    self.data_idx_to_seq_idxs[data_idx] = (
-                        char_seq_idx, start_idx)
-                    data_idx += 1
+        for seq_idx, token_sequence in enumerate(self.token_sequences):
+            if token_sequence[0][0] != self.FILE_START:
+                token_sequence = [(self.FILE_START, self.INT2TOKENTYPE[self.FILE_START]),] + token_sequence
+                self.token_sequences[seq_idx] = token_sequence
+            self._append_to_vocabulary(token_sequence)
+            logger.info("File {} ({})".format(seq_idx, datetime.now() - start))
+            window_size = len(token_sequence)
+            if self.max_window_size is not None:
+                window_size = min(self.max_window_size, window_size)
+            chunk_windows = range(0, len(token_sequence) - window_size + 1)
+            for start_idx in chunk_windows:
+                self.data_idx_to_seq_idxs[data_idx] = (seq_idx, start_idx)
+                data_idx += 1
+
 
     @classmethod
     def _append_to_vocabulary(cls, tokens):
@@ -227,8 +240,7 @@ class TokenDataset(Dataset):
                 cls.INT2LITERAL[tid_new] = t_val
 
     @classmethod
-    def _convert_text_to_tokens(cls, idx_char_sequence, tab="    "):
-        seq_idx, char_sequence = idx_char_sequence
+    def _convert_text_to_tokens(cls, char_sequence, tab="    "):
         if char_sequence[0] == CharDataset.FILE_START:
             char_sequence = char_sequence[1:]
         if char_sequence[-1] == CharDataset.FILE_END:
@@ -253,7 +265,7 @@ class TokenDataset(Dataset):
                 if t_type == INDENT:
                     num_indents = math.floor(len(t_val) / _tabsize)
                     file_tokens[ft_idx] = (t_type, tab * num_indents)
-        return seq_idx, file_tokens
+        return file_tokens
 
     def __len__(self):
         return len(self.data_idx_to_seq_idxs.keys())
