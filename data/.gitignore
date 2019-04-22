@@ -1,3 +1,6 @@
 gh_processed
 gh_raw_extract
-
+*.json
+!charseqs.json
+!debugging_charseqs.json
+!testcase_charseqs.json

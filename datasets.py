@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 import torch
@@ -176,7 +177,7 @@ class TokenDataset(Dataset):
     del _LITERAL_TOKENS
     del _TOKEN_IDS_TO_TYPE
 
-    def __init__(self, data_path="./data/tokenseqs.json", max_window_size=None, transform=None):
+    def __init__(self, data_path="./data/tokenseqs.json", max_window_size=None, transform=None, enable_token_cache=False):
         super(TokenDataset, self).__init__()
 
         self.max_window_size = max_window_size
@@ -207,20 +208,36 @@ class TokenDataset(Dataset):
         self.data_idx_to_seq_idxs = {}
         data_idx = 0
 
-        for seq_idx, token_sequence in enumerate(self.token_sequences):
-            if token_sequence[0][0] != self.FILE_START:
-                token_sequence = [(self.FILE_START, self.INT2TOKENTYPE[self.FILE_START]),] + token_sequence
-                self.token_sequences[seq_idx] = token_sequence
-            self._append_to_vocabulary(token_sequence)
-            logger.info("File {} ({})".format(seq_idx, datetime.now() - start))
-            window_size = len(token_sequence)
-            if self.max_window_size is not None:
-                window_size = min(self.max_window_size, window_size)
-            chunk_windows = range(0, len(token_sequence) - window_size + 1)
-            for start_idx in chunk_windows:
-                self.data_idx_to_seq_idxs[data_idx] = (seq_idx, start_idx)
-                data_idx += 1
-
+        if os.path.isfile("tokencache"):
+            logger.info("loading from tokencache")
+            with open("tokencache", "r") as f:
+                tokencache = json.load(f)
+            TokenDataset.LITERAL2INT = tokencache["LITERAL2INT"]
+            TokenDataset.INT2LITERAL = {
+                lit_id: lit_val for lit_val, lit_id in TokenDataset.LITERAL2INT.items()}
+            self.data_idx_to_seq_idxs = tokencache["data_idx_to_seq_idxs"]
+        else:
+            for seq_idx, token_sequence in enumerate(self.token_sequences):
+                if token_sequence[0][0] != self.FILE_START:
+                    token_sequence = [
+                        (self.FILE_START, self.INT2TOKENTYPE[self.FILE_START]), ] + token_sequence
+                    self.token_sequences[seq_idx] = token_sequence
+                self._append_to_vocabulary(token_sequence)
+                logger.info("File {} ({})".format(seq_idx, datetime.now() - start))
+                window_size = len(token_sequence)
+                if self.max_window_size is not None:
+                    window_size = min(self.max_window_size, window_size)
+                chunk_windows = range(0, len(token_sequence) - window_size + 1)
+                for start_idx in chunk_windows:
+                    self.data_idx_to_seq_idxs[data_idx] = (seq_idx, start_idx)
+                    data_idx += 1
+            if enable_token_cache:
+                with open("tokencache", "w") as f:
+                    logger.info("saving to tokencache")
+                    json.dump({
+                        "LITERAL2INT": self.LITERAL2INT,
+                        "data_idx_to_seq_idxs": self.data_idx_to_seq_idxs
+                    }, f)
 
     @classmethod
     def _append_to_vocabulary(cls, tokens):

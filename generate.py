@@ -3,7 +3,7 @@ import torch
 import logging
 from io import StringIO
 from token import ENDMARKER
-from tokenize import generate_tokens, untokenize
+from tokenize import generate_tokens
 from datasets import CharDataset, CharSequenceToTensor, TokenDataset, TokenSequenceToTensor
 
 logger = logging.getLogger("genpyseq")
@@ -184,5 +184,5 @@ def generate_tokenseq(
 
     if print_output and i == max_generate_len - 1:
         print("~~max_gen_len reached~~")
-    print(untokenize(predicted))
+    print(TokenDataset.tokens_to_text(predicted))
     return predicted

@@ -92,7 +92,8 @@ def main(
         dataset = TokenDataset(max_window_size=window_size,
                                data_path=data_path,
                                transform=transforms.Compose(
-                                   [TokenSequenceToTensor(cuda=use_cuda), ]))
+                                   [TokenSequenceToTensor(cuda=use_cuda), ]),
+                               enable_token_cache=True)
 
         logger.info("Constructing the neural network architecture...")
         nn = TokenRNN(

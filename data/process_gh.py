@@ -96,6 +96,11 @@ def main():
                         file_chars = (chr(2), ) + tuple(content) + (chr(3),)
                         files_chars.append(file_chars)
                         files_tokens.append(tokens)
+                    if num_files >= 5000:
+                        break
+        if num_files >= 5000:
+            break
+
         # evaluated_path = os.path.join(dir_path, "gh_processed", base_name)
         # with open(evaluated_path, "w") as f:
         #     json.dump(evaluated_files, f)
