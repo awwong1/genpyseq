@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 import json
 import os
+import logging
+import sys
 from argparse import ArgumentParser
+from datetime import datetime
 from multiprocessing import Pool
+
+logger = logging.getLogger(__name__)
 
 
 def check_char_sequence_is_executable(char_sequence):
@@ -25,6 +30,9 @@ def check_char_sequence_is_executable(char_sequence):
 
 
 def main(data_file):
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    logger.setLevel(logging.INFO)
+
     if not os.path.isfile(data_file):
         print("No file at {}".format(data_file))
         return
@@ -32,11 +40,14 @@ def main(data_file):
     with open(data_file, "r") as f:
         char_sequences = json.load(f)
     executable = []
+    start = datetime.now()
     with Pool() as p:
         for res in p.imap(check_char_sequence_is_executable, char_sequences):
+            logger.info("{} ({})".format(len(executable), datetime.now() - start))
             executable.append(res)
     with open("{}.exec_res".format(data_file), "w") as f:
         json.dump(executable, f)
+        logger.info("Saved to {}".format(f.name))
 
 
 if __name__ == "__main__":

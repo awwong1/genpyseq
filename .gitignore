@@ -166,3 +166,4 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 
 .pytest_cache
+fitness.json
