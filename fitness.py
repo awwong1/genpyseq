@@ -55,7 +55,7 @@ def check_char_sequence_is_parseable(char_sequence):
 
 
 def calculate_fitness(perplexity, length, parseable, executable):
-    return (length + (2 * length * parseable) + (4 * length * executable)) / perplexity
+    return (length + (length * parseable) + (2 * length * executable)) / perplexity
 
 
 def main(data_file="", ngram_model="", exec_results="", output_name=""):
