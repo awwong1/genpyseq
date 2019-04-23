@@ -4,6 +4,28 @@ Using neural networks to generate sequences of Python source code.
 
 See [notebooks](notebooks) for proof of concepts and examples.
 
+## Quickstart
+
+```bash
+# setting up the development environment
+virtualenv venv --python=python3
+source venv activate
+pip install -r requirements.txt
+./main.py --help
+
+# setting up KenLM
+git submodule init
+git submodule update
+cd kenlm
+mkdir -p build
+cd build
+cmake .. -DKENLM_MAX_ORDER=10
+make -j 4
+cd ../..
+./stream_dataset_source_code.py | ./kenlm/build/bin/lmplz --verbose_header --order 10 --temp_prefix /tmp/ --arpa ./models/py-10gram.arpa
+./kenlm/build/bin/build_binary ./models/py-10gram.arpa ./models/py-10gram.mmap
+```
+
 ## License
 
 [MIT License](LICENSE).
