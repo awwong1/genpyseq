@@ -6,6 +6,7 @@ bleach==3.1.0
 decorator==4.4.0
 defusedxml==0.5.0
 entrypoints==0.3
+graphviz==0.10.1
 ipykernel==5.1.0
 ipython==7.4.0
 ipython-genutils==0.2.0
@@ -17,6 +18,7 @@ jupyter==1.0.0
 jupyter-client==5.2.4
 jupyter-console==6.0.0
 jupyter-core==4.4.0
+kenlm==0.0.0
 MarkupSafe==1.1.1
 mistune==0.8.4
 more-itertools==7.0.0
@@ -41,12 +43,14 @@ pytest==4.4.1
 python-dateutil==2.8.0
 pyzmq==18.0.1
 qtconsole==4.4.3
+rope==0.14.0
 Send2Trash==1.5.0
 six==1.12.0
 terminado==0.8.2
 testpath==0.4.2
 torch==1.0.1.post2
 torchvision==0.2.2.post3
+torchviz==0.0.1
 tornado==6.0.2
 traitlets==4.3.2
 wcwidth==0.1.7
