@@ -41,10 +41,10 @@ def main(data_file):
         char_sequences = json.load(f)
     executable = []
     start = datetime.now()
-    with Pool() as p:
-        for res in p.imap(check_char_sequence_is_executable, char_sequences):
-            logger.info("{} ({})".format(len(executable), datetime.now() - start))
-            executable.append(res)
+    for char_sequence in char_sequences:
+        res = check_char_sequence_is_executable(char_sequence)
+        logger.info("{} ({})".format(len(executable), datetime.now() - start))
+        executable.append(res)
     with open("{}.exec_res".format(data_file), "w") as f:
         json.dump(executable, f)
         logger.info("Saved to {}".format(f.name))

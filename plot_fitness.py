@@ -21,6 +21,7 @@ def main(fitness_dict=""):
     plt.ylabel("Density")
     plt.xlim(0, None)
     plt.show()
+    plt.savefig("fitness_distribution.pdf")
 
 
 
