@@ -48,7 +48,7 @@ class CharRNN(nn.Module):
         if self.use_cuda:
             self.cuda()
 
-    def forward(self, inp_val, hidden):
+    def forward(self, inp_val, hidden, temperature=None):
         for_decoder, hidden = self.rnn(inp_val, hidden)
         # for_decoder = for_decoder.expand(self.recurrent_layers, 1, -1)
         if self.recurrent_type == "LSTM":
@@ -56,6 +56,8 @@ class CharRNN(nn.Module):
         else:
             for_decoder = torch.cat((for_decoder, hidden), dim=2)
         for_softmax = self.decoder(for_decoder)
+        if temperature is not None:
+            for_softmax = for_softmax.div(temperature)
         output = self.softmax(for_softmax)
         return output, hidden
 
@@ -170,7 +172,7 @@ class TokenRNN(nn.Module):
         if self.use_cuda:
             self.cuda()
 
-    def forward(self, type_inp_val, literal_inp_val, type_hidden, literal_hidden):
+    def forward(self, type_inp_val, literal_inp_val, type_hidden, literal_hidden, temperature=None):
         for_type_decoder, type_hidden = self.type_rnn(
             type_inp_val, type_hidden)
         for_literal_decoder, literal_hidden = self.literal_rnn(
@@ -191,6 +193,10 @@ class TokenRNN(nn.Module):
         for_literal_decoder = torch.cat(
             (for_literal_decoder, for_type_softmax), dim=2)
         for_literal_softmax = self.literal_decoder(for_literal_decoder)
+
+        if temperature is not None:
+            for_type_softmax = for_type_softmax.div(temperature)
+            for_literal_softmax = for_literal_softmax.div(temperature)
 
         type_output = self.softmax(for_type_softmax)
         literal_output = self.softmax(for_literal_softmax)

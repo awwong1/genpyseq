@@ -50,20 +50,20 @@ def generate_charseq(
     input_tensor, _ = charseq_to_tensor(
         (input_seq[-window_size:], input_seq[-window_size:]))
     for i in range(len(input_seq)):
-        output, hidden = nn(input_tensor.narrow(0, i, 1), hidden)
+        output, hidden = nn(input_tensor.narrow(0, i, 1), hidden, temperature=temperature)
 
     # predict until max_len or FILE_END/PAD character is reached
     predicted = input_seq[:]
     for i in range(max_generate_len):
         if temperature is not None:
             # Sample from the network as a multinomial distribution
-            output_dist = output.data.view(-1).div(temperature).exp()
+            output_dist = output.data.view(-1).exp()
             top_i = torch.multinomial(output_dist, 1)[0]
             char = CharDataset.INT2CHAR[top_i.item()]
         else:
             _, pred_char_idx = output.topk(1)
             char = CharDataset.INT2CHAR[pred_char_idx.item()]
-
+        
         if print_output:
             print(char, end="")
         predicted.append(char)
@@ -136,18 +136,18 @@ def generate_tokenseq(
     for i in range(len(file_tokens)):
         inp_type_tensor, inp_literal_tensor = input_tensor
         type_output, literal_output, type_hidden, literal_hidden = nn(inp_type_tensor.narrow(
-            0, i, 1), inp_literal_tensor.narrow(0, i, 1), type_hidden, literal_hidden)
+            0, i, 1), inp_literal_tensor.narrow(0, i, 1), type_hidden, literal_hidden,
+            temperature=temperature)
 
     # predict until max_len or FILE_END/PAD character is reached
     predicted = file_tokens[:]
     for i in range(max_generate_len):
         if temperature is not None:
             # Sample from the network as a multinomial distribution
-            type_output_dist = type_output.data.view(-1).div(temperature).exp()
+            type_output_dist = type_output.data.view(-1).exp()
             type_top_i = torch.multinomial(type_output_dist, 1)[0]
             token_type = type_top_i.item()
-            literal_output_dist = literal_output.data.view(
-                -1).div(temperature).exp()
+            literal_output_dist = literal_output.data.view(-1).exp()
             literal_top_i = torch.multinomial(literal_output_dist, 1)[0]
             token_literal = TokenDataset.INT2LITERAL[literal_top_i.item()]
         else:

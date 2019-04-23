@@ -79,6 +79,17 @@
                 "--print-every-iter", "1",
                 "--recurrent-type", "LSTM"
             ]
+        },     {
+            "name": "GenPySeq: Char Generation",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "char",
+                "--generate",
+                "--temperature", "0.9"
+            ]
         },
         {
             "name": "GenPySeq: Token Train",
