@@ -3,7 +3,6 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy import stats
 from argparse import ArgumentParser
 
 
@@ -11,9 +10,6 @@ def main(fitness_dict=""):
     with open(fitness_dict, "r") as f:
         data_dict = json.load(f)
     df = pd.DataFrame(data=data_dict)
-
-    print(stats.describe(df["Fitness"]))
-
     ax = sns.distplot(df["Fitness"], bins=40, norm_hist=True, label="GitHub")
 
     plt.legend()

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Given source code as input, evaluate code 'fitness' as defined in the paper.
-fitness = perplexity + (10∗parse) + (100∗execute)
 """
 import kenlm
 import json
@@ -8,6 +7,7 @@ import subprocess
 from ast import parse
 from argparse import ArgumentParser
 from io import StringIO
+from scipy import stats
 from tokenize import generate_tokens
 
 
@@ -55,7 +55,7 @@ def check_char_sequence_is_parseable(char_sequence):
 
 
 def calculate_fitness(perplexity, length, parseable, executable):
-    return ((length * parseable) + (2 * length * executable)) / (4 * perplexity)
+    return (length + (2 * length * parseable) + (4 * length * executable)) / perplexity
 
 
 def main(data_file="", ngram_model="", exec_results="", output_name=""):
@@ -92,15 +92,16 @@ def main(data_file="", ngram_model="", exec_results="", output_name=""):
         if parseable:
             executable = seq_exec_results[idx]
 
-        print("PP: {:.4f}, Length: {}, Parse: {}, Exec: {}".format(
-            perplexity, length, parseable, executable))
         fitness = calculate_fitness(perplexity, length, parseable, executable)
-        print("Fitness: {}".format(fitness))
+        print("{}) PP: {:.4f}, Length: {}, Parse: {}, Exec: {} | FITNESS: {:.6f}".format(
+            idx, perplexity, length, parseable, executable, fitness))
         data_dict["Fitness"].append(fitness)
         data_dict["Perplexity"].append(perplexity)
         data_dict["Length"].append(length)
         data_dict["Parseability"].append(parseable)
         data_dict["Executability"].append(executable)
+
+    print(stats.describe(data_dict["Fitness"]))
 
     with open(output_name, "w") as f:
         json.dump(data_dict, f)
