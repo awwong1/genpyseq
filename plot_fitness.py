@@ -9,15 +9,23 @@ from argparse import ArgumentParser
 def main(fitness_dict=""):
     with open(fitness_dict, "r") as f:
         data_dict = json.load(f)
+    fitness = data_dict.get("Fitness")
+    data_dict["Model"] = ["GitHub"] * len(fitness)
     df = pd.DataFrame(data=data_dict)
-    ax = sns.distplot(df["Fitness"], bins=40, norm_hist=True, label="GitHub")
+    # ax = sns.distplot(df["Fitness"], bins=40, norm_hist=True, label="GitHub")
 
-    plt.legend()
+    # plt.legend()
+    # plt.title("Distribution of Source Code Fitness")
+    # plt.ylabel("Density")
+    # plt.xlim(0, None)
+    # plt.show()
+    # plt.savefig("fitness_distribution.pdf")
+
+    ax = sns.violinplot(x="Model", y="Fitness", data=df)
+    ax.set_yscale("log")
     plt.title("Distribution of Source Code Fitness")
-    plt.ylabel("Density")
-    plt.xlim(0, None)
+    plt.ylim(0, None)
     plt.show()
-    plt.savefig("fitness_distribution.pdf")
 
 
 

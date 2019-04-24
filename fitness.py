@@ -58,7 +58,7 @@ def calculate_fitness(perplexity, length, parseable, executable):
     return (length + (length * parseable) + (2 * length * executable)) / perplexity
 
 
-def main(data_file="", ngram_model="", exec_results="", output_name=""):
+def main(model_name="", data_file="", ngram_model="", exec_results="", output_name=""):
     ngram = kenlm.Model(ngram_model)
 
     with open(data_file, "r") as f:
@@ -67,6 +67,7 @@ def main(data_file="", ngram_model="", exec_results="", output_name=""):
         seq_exec_results = json.load(f)
 
     data_dict = {
+        "Model": [],
         "Fitness": [],
         "Perplexity": [],
         "Length": [],
@@ -95,6 +96,7 @@ def main(data_file="", ngram_model="", exec_results="", output_name=""):
         fitness = calculate_fitness(perplexity, length, parseable, executable)
         print("{}) PP: {:.4f}, Length: {}, Parse: {}, Exec: {} | FITNESS: {:.6f}".format(
             idx, perplexity, length, parseable, executable, fitness))
+        data_dict["Model"].append(model_name)
         data_dict["Fitness"].append(fitness)
         data_dict["Perplexity"].append(perplexity)
         data_dict["Length"].append(length)
@@ -110,6 +112,8 @@ def main(data_file="", ngram_model="", exec_results="", output_name=""):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("--model-name", help="model name for the dataframe",
+                        type=str, default="GitHub")
     parser.add_argument("--data-file", help="file containing char sequences to evaluate",
                         type=str, default="./data/charseqs.json")
     parser.add_argument("--ngram-model", help="n-gram model file to use",
@@ -119,5 +123,6 @@ if __name__ == "__main__":
     parser.add_argument("--output-name", help="name of output dataframe dict",
                         type=str, default="fitness.json")
     args = parser.parse_args()
-    main(data_file=args.data_file, ngram_model=args.ngram_model,
-         exec_results=args.exec_results, output_name=args.output_name)
+    main(
+        model_name=args.model_name, data_file=args.data_file, ngram_model=args.ngram_model,
+        exec_results=args.exec_results, output_name=args.output_name)

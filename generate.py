@@ -12,22 +12,6 @@ logger = logging.getLogger("genpyseq")
 def generate_charseq(
         nn, prime_str=CharDataset.FILE_START, max_window_size=None, print_output=True,
         max_generate_len=1000, temperature=None):
-    progress_path = nn.get_progress_path()
-    # Load our model
-    logger.info("Loading the model weights...")
-    path = nn.get_state_dict_path()
-    if not os.path.isfile(path):
-        raise FileNotFoundError(
-            ("Model does not exist at {}. " +
-                "Manual model renaming required.").format(path))
-    nn.load_state_dict(torch.load(path))
-    nn = nn.eval()
-
-    logger.info(" • max window size: {}".format(max_window_size))
-    logger.info(" • temperature: {}".format(temperature))
-    logger.info(" • max generate length: {}".format(max_generate_len))
-    logger.info("Generating sequence.")
-
     if not prime_str.startswith(CharDataset.FILE_START):
         prime_str = CharDataset.FILE_START + prime_str
 
@@ -93,22 +77,6 @@ def generate_charseq(
 def generate_tokenseq(
         nn, prime_str="", max_window_size=None, print_output=True,
         max_generate_len=1000, temperature=None):
-    progress_path = nn.get_progress_path()
-    # Load our model
-    logger.info("Loading the model weights...")
-    path = nn.get_state_dict_path()
-    if not os.path.isfile(path):
-        raise FileNotFoundError(
-            ("Model does not exist at {}. " +
-                "Manual model renaming required.").format(path))
-    nn.load_state_dict(torch.load(path))
-    nn = nn.eval()
-
-    logger.info(" • max window size: {}".format(max_window_size))
-    logger.info(" • temperature: {}".format(temperature))
-    logger.info(" • max generate length: {}".format(max_generate_len))
-    logger.info("Generating sequence.")
-
     file_tokens = [(TokenDataset.FILE_START,
                     TokenDataset.INT2TOKENTYPE[TokenDataset.FILE_START]), ]
 
@@ -184,5 +152,4 @@ def generate_tokenseq(
 
     if print_output and i == max_generate_len - 1:
         print("~~max_gen_len reached~~")
-    print(TokenDataset.tokens_to_text(predicted))
     return predicted

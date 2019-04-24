@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import os
 import sys
 import logging
 import argparse
 import torch
+import json
 from torchvision import transforms
 
 from datasets import CharDataset, CharSequenceToTensor, TokenDataset, TokenSequenceToTensor
@@ -27,6 +29,7 @@ DEFAULT_DISABLE_CUDA = False
 DEFAULT_TEMPERATURE = None
 DEFAULT_MAX_GEN_LEN = 1000
 DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_GENERATE_SAMPLE_AMOUNT = 1000
 
 
 def main(
@@ -37,6 +40,8 @@ def main(
     temperature=DEFAULT_TEMPERATURE,
     max_generate_len=DEFAULT_MAX_GEN_LEN,
     generator_prime_str=CharDataset.FILE_START,
+    generator_output_file=None,
+    generator_sample_amount=DEFAULT_GENERATE_SAMPLE_AMOUNT,
     window_size=DEFAULT_WINDOW_SIZE,
     batch_size=DEFAULT_BATCH_SIZE,
     disable_cuda=DEFAULT_DISABLE_CUDA,
@@ -82,10 +87,44 @@ def main(
                                    print_every=print_every_iter,
                                    use_cuda=use_cuda)
         elif generate:
-            generate_charseq(nn, prime_str=generator_prime_str,
-                             max_window_size=window_size,
-                             max_generate_len=max_generate_len,
-                             temperature=temperature)
+            progress_path = nn.get_progress_path()
+            # Load our model
+            logger.info("Loading the model weights...")
+            path = nn.get_state_dict_path()
+            if not os.path.isfile(path):
+                raise FileNotFoundError(
+                    ("Model does not exist at {}. " +
+                        "Manual model renaming required.").format(path))
+            nn.load_state_dict(torch.load(path))
+            nn = nn.eval()
+
+            logger.info(" • max window size: {}".format(window_size))
+            logger.info(" • temperature: {}".format(temperature))
+            logger.info(" • max generate length: {}".format(max_generate_len))
+            logger.info("Generating.")
+
+            if generator_output_file is None:
+                # just output one sample for display
+                generate_charseq(nn, prime_str=generator_prime_str,
+                                 max_window_size=window_size,
+                                 max_generate_len=max_generate_len,
+                                 temperature=temperature)
+            else:
+                # output multiple samples to a file
+                samples = []
+                for gen_idx in range(generator_sample_amount):
+                    sample = generate_charseq(
+                        nn, prime_str=generator_prime_str,
+                        max_window_size=window_size,
+                        print_output=False,
+                        max_generate_len=max_generate_len,
+                        temperature=temperature)
+                    samples.append(sample)
+                    logger.info(" • {}) {}".format(gen_idx, sample[:20]))
+                with open(generator_output_file, "w") as f:
+                    json.dump(samples, f)
+                logger.info("Saved {} samples to {}".format(
+                    generator_sample_amount, generator_output_file))
         else:
             logger.info("train or generate not specified? (See --help)")
     elif representation == "token":
@@ -110,10 +149,43 @@ def main(
                                     print_every=print_every_iter,
                                     use_cuda=use_cuda)
         elif generate:
-            generate_tokenseq(nn, prime_str=generator_prime_str,
-                              max_window_size=window_size,
-                              max_generate_len=max_generate_len,
-                              temperature=temperature)
+            progress_path = nn.get_progress_path()
+            # Load our model
+            logger.info("Loading the model weights...")
+            path = nn.get_state_dict_path()
+            if not os.path.isfile(path):
+                raise FileNotFoundError(
+                    ("Model does not exist at {}. " +
+                        "Manual model renaming required.").format(path))
+            nn.load_state_dict(torch.load(path))
+            nn = nn.eval()
+
+            logger.info(" • max window size: {}".format(window_size))
+            logger.info(" • temperature: {}".format(temperature))
+            logger.info(" • max generate length: {}".format(max_generate_len))
+            logger.info("Generating.")
+
+            if generator_output_file is None:
+                generate_tokenseq(nn, prime_str=generator_prime_str,
+                                  max_window_size=window_size,
+                                  max_generate_len=max_generate_len,
+                                  temperature=temperature)
+            else:
+                # output multiple samples to a file
+                samples = []
+                for gen_idx in range(generator_sample_amount):
+                    sample = generate_tokenseq(
+                        nn, prime_str=generator_prime_str,
+                        max_window_size=window_size,
+                        print_output=False,
+                        max_generate_len=max_generate_len,
+                        temperature=temperature)
+                    samples.append(sample)
+                    logger.info(" • {}) {}".format(gen_idx, sample[:3]))
+                with open(generator_output_file, "w") as f:
+                    json.dump(samples, f)
+                logger.info("Saved {} samples to {}".format(
+                    generator_sample_amount, generator_output_file))
         else:
             logger.info("train or generate not specified? (See --help)")
 
@@ -164,7 +236,14 @@ if __name__ == "__main__":
         help="string to prime generator hidden state with (default: {})".format(
             repr("")),
         type=str, default="")
-
+    parser.add_argument(
+        "--generator-output-file", help="if set, generated code will be outputted to a file instead of printed",
+        type=str, default=None
+    )
+    parser.add_argument(
+        "--generator-sample-amount", help="if outputting to file, generator will output this number of samples (default: {})".format(DEFAULT_GENERATE_SAMPLE_AMOUNT),
+        type=int, default=DEFAULT_GENERATE_SAMPLE_AMOUNT
+    )
     parser.add_argument(
         "--window-size",
         help="sequence window upper bound size for data (default: {})".format(
@@ -235,6 +314,8 @@ if __name__ == "__main__":
         temperature=args.temperature,
         max_generate_len=args.max_generate_len,
         generator_prime_str=args.generator_prime_str,
+        generator_output_file=args.generator_output_file,
+        generator_sample_amount=args.generator_sample_amount,
         window_size=args.window_size,
         batch_size=args.batch_size,
         disable_cuda=args.disable_cuda,
