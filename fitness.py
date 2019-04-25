@@ -12,7 +12,7 @@ from io import StringIO
 from scipy import stats
 from tokenize import generate_tokens
 from glob import glob
-
+from datasets import TokenDataset
 
 def remove_start_end_chr(char_sequence):
     if char_sequence[0] == chr(2):
@@ -79,7 +79,7 @@ def main(data_file_glob="", ngram_model="", output_name=""):
 
         with open(data_file, "r") as f:
             file_name = f.name
-            char_sequences = json.load(f)
+            sequences = json.load(f)
         exec_results = "{}.exec_res".format(file_name)
         with open(exec_results, "r") as f:
             seq_exec_results = json.load(f)
@@ -95,23 +95,34 @@ def main(data_file_glob="", ngram_model="", output_name=""):
             model_name = "{}Gen".format(params.get("model").capitalize())
             temperature = float(params.get("temperature"))
 
-        for idx, char_sequence in enumerate(char_sequences):
-            # Calculate perplexity
-            kenlm_sequence = char_seq_to_kenlm_sentence(char_sequence)
-            perplexity = ngram.perplexity(kenlm_sequence)
-
-            # Calculate length
-            length = char_seq_to_token_len(char_sequence)
-
-            # Calculate parseability
-            parseable = 0
-            if length:
-                parseable = check_char_sequence_is_parseable(char_sequence)
-
-            # Calculate executable
-            executable = 0
-            if parseable:
-                executable = seq_exec_results[idx]
+        for idx, sequence in enumerate(sequences):
+            # determine if char sequence or token sequence
+            if all(len(elem) == 1 for elem in sequence):
+                # it's a char sequence
+                # Calculate perplexity
+                kenlm_sequence = char_seq_to_kenlm_sentence(sequence)
+                perplexity = ngram.perplexity(kenlm_sequence)
+                # Calculate length
+                length = char_seq_to_token_len(sequence)
+                # Calculate parseability
+                parseable = 0
+                if length:
+                    parseable = check_char_sequence_is_parseable(sequence)
+                # Calculate executable
+                executable = 0
+                if parseable:
+                    executable = seq_exec_results[idx]
+            elif all(len(elem) == 2 for elem in sequence):
+                # it's a token sequence
+                parseable, executable = seq_exec_results[idx]
+                length = len(sequence)
+                # perplexity calculation depends on parseability
+                if parseable:
+                    char_sequence = list(TokenDataset.tokens_to_text(sequence))
+                else:
+                    char_sequence = list(" ".join([token[1] for token in sequence]))
+                kenlm_sequence = char_seq_to_kenlm_sentence(char_sequence)
+                perplexity = ngram.perplexity(kenlm_sequence)
 
             fitness = calculate_fitness(
                 perplexity, length, parseable, executable)

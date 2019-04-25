@@ -106,6 +106,14 @@
                 "--batch-size", "8",
                 "--window-size", "40"
             ]
+        },
+        {
+            "name": "GenPySeq: Fitness Generation",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/fitness.py",
+            "console": "integratedTerminal",
+            "args": []
         }
     ]
 }
