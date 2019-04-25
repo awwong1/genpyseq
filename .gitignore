@@ -168,3 +168,5 @@ $RECYCLE.BIN/
 .pytest_cache
 fitness.json
 fitness_distribution.pdf
+*.pdf
+tokencache

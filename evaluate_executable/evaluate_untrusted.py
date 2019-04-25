@@ -3,6 +3,7 @@ import json
 import os
 import logging
 import sys
+from ast import parse
 from argparse import ArgumentParser
 from datetime import datetime
 from io import StringIO
@@ -34,6 +35,7 @@ def check_char_sequence_is_executable(char_sequence):
 
 
 def check_token_sequence_is_parseable(sequence):
+    source_code = None
     try:
         _ids_to_type = {**tok_name}
         del _ids_to_type[NT_OFFSET]
@@ -42,9 +44,10 @@ def check_token_sequence_is_parseable(sequence):
         # remove custom START tokens from our list of tokens
         tokens = [t for t in sequence if t[0] not in (FILE_START, PAD)]
         source_code = untokenize(tokens)
+        parse(source_code)
         return 1, source_code
     except:
-        return 0, None
+        return 0, source_code
 
 
 def main(data_file_glob=""):
