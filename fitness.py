@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Given source code as input, evaluate code 'fitness' as defined in the paper.
 """
+import re
+import os
 import kenlm
 import json
 import subprocess
@@ -9,6 +11,7 @@ from argparse import ArgumentParser
 from io import StringIO
 from scipy import stats
 from tokenize import generate_tokens
+from glob import glob
 
 
 def remove_start_end_chr(char_sequence):
@@ -58,16 +61,12 @@ def calculate_fitness(perplexity, length, parseable, executable):
     return (length + (length * parseable) + (2 * length * executable)) / perplexity
 
 
-def main(model_name="", data_file="", ngram_model="", exec_results="", output_name=""):
+def main(data_file_glob="", ngram_model="", output_name=""):
     ngram = kenlm.Model(ngram_model)
-
-    with open(data_file, "r") as f:
-        char_sequences = json.load(f)
-    with open(exec_results, "r") as f:
-        seq_exec_results = json.load(f)
 
     data_dict = {
         "Model": [],
+        "Temperature": [],
         "Fitness": [],
         "Perplexity": [],
         "Length": [],
@@ -75,35 +74,56 @@ def main(model_name="", data_file="", ngram_model="", exec_results="", output_na
         "Executability": [],
     }
 
-    for idx, char_sequence in enumerate(char_sequences):
-        # Calculate perplexity
-        kenlm_sequence = char_seq_to_kenlm_sentence(char_sequence)
-        perplexity = ngram.perplexity(kenlm_sequence)
+    data_files = glob(data_file_glob)
+    for data_file in data_files:
 
-        # Calculate length
-        length = char_seq_to_token_len(char_sequence)
+        with open(data_file, "r") as f:
+            file_name = f.name
+            char_sequences = json.load(f)
+        exec_results = "{}.exec_res".format(file_name)
+        with open(exec_results, "r") as f:
+            seq_exec_results = json.load(f)
 
-        # Calculate parseability
-        parseable = 0
-        if length:
-            parseable = check_char_sequence_is_parseable(char_sequence)
+        # determine the model
+        m = re.search(
+            "(?P<model>[a-zA-Z]*)\_temperature(?P<temperature>\d\.\d)\.json$", file_name)
+        if m is None:
+            model_name = "GitHub"
+            temperature = 1
+        else:
+            params = m.groupdict()
+            model_name = "{}Gen".format(params.get("model").capitalize())
+            temperature = float(params.get("temperature"))
 
-        # Calculate executable
-        executable = 0
-        if parseable:
-            executable = seq_exec_results[idx]
+        for idx, char_sequence in enumerate(char_sequences):
+            # Calculate perplexity
+            kenlm_sequence = char_seq_to_kenlm_sentence(char_sequence)
+            perplexity = ngram.perplexity(kenlm_sequence)
 
-        fitness = calculate_fitness(perplexity, length, parseable, executable)
-        print("{}) PP: {:.4f}, Length: {}, Parse: {}, Exec: {} | FITNESS: {:.6f}".format(
-            idx, perplexity, length, parseable, executable, fitness))
-        data_dict["Model"].append(model_name)
-        data_dict["Fitness"].append(fitness)
-        data_dict["Perplexity"].append(perplexity)
-        data_dict["Length"].append(length)
-        data_dict["Parseability"].append(parseable)
-        data_dict["Executability"].append(executable)
+            # Calculate length
+            length = char_seq_to_token_len(char_sequence)
 
-    print(stats.describe(data_dict["Fitness"]))
+            # Calculate parseability
+            parseable = 0
+            if length:
+                parseable = check_char_sequence_is_parseable(char_sequence)
+
+            # Calculate executable
+            executable = 0
+            if parseable:
+                executable = seq_exec_results[idx]
+
+            fitness = calculate_fitness(
+                perplexity, length, parseable, executable)
+            print("{}_temp{} {}) PP: {:.4f}, Length: {}, Parse: {}, Exec: {} | FITNESS: {:.6f}".format(
+                model_name, temperature, idx, perplexity, length, parseable, executable, fitness))
+            data_dict["Model"].append(model_name)
+            data_dict["Temperature"].append(temperature)
+            data_dict["Fitness"].append(fitness)
+            data_dict["Perplexity"].append(perplexity)
+            data_dict["Length"].append(length)
+            data_dict["Parseability"].append(parseable)
+            data_dict["Executability"].append(executable)
 
     with open(output_name, "w") as f:
         json.dump(data_dict, f)
@@ -112,17 +132,12 @@ def main(model_name="", data_file="", ngram_model="", exec_results="", output_na
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--model-name", help="model name for the dataframe",
-                        type=str, default="GitHub")
-    parser.add_argument("--data-file", help="file containing char sequences to evaluate",
-                        type=str, default="./data/charseqs.json")
+    parser.add_argument("--files", help="files containing char sequences to evaluate (default: ./raw_gen_seq/*.json)",
+                        type=str, default="./raw_gen_seq/*.json")
     parser.add_argument("--ngram-model", help="n-gram model file to use",
                         type=str, default="./models/py-10gram.mmap")
-    parser.add_argument("--exec-results", help="file containing execution results",
-                        type=str, default="./data/charseqs.json.exec_res")
     parser.add_argument("--output-name", help="name of output dataframe dict",
                         type=str, default="fitness.json")
     args = parser.parse_args()
-    main(
-        model_name=args.model_name, data_file=args.data_file, ngram_model=args.ngram_model,
-        exec_results=args.exec_results, output_name=args.output_name)
+    main(data_file_glob=args.files, ngram_model=args.ngram_model,
+         output_name=args.output_name)

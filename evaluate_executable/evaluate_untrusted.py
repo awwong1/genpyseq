@@ -5,6 +5,7 @@ import logging
 import sys
 from argparse import ArgumentParser
 from datetime import datetime
+from glob import glob
 from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
@@ -29,32 +30,29 @@ def check_char_sequence_is_executable(char_sequence):
     return 0
 
 
-def main(data_file):
+def main(data_file_glob=""):
     logger.addHandler(logging.StreamHandler(sys.stdout))
     logger.setLevel(logging.INFO)
-
-    if not os.path.isfile(data_file):
-        print("No file at {}".format(data_file))
-        return
-
-    with open(data_file, "r") as f:
-        char_sequences = json.load(f)
-    executable = []
-    start = datetime.now()
-    for char_sequence in char_sequences:
-        res = check_char_sequence_is_executable(char_sequence)
-        logger.info("{} ({})".format(len(executable), datetime.now() - start))
-        executable.append(res)
-    with open("{}.exec_res".format(data_file), "w") as f:
-        json.dump(executable, f)
-        logger.info("Saved to {}".format(f.name))
+    file_paths = glob(data_file_glob)
+    for file_path in file_paths:
+        with open(file_path, "r") as f:
+            char_sequences = json.load(f)
+        executable = []
+        start = datetime.now()
+        for char_sequence in char_sequences:
+            res = check_char_sequence_is_executable(char_sequence)
+            logger.info("{} ({})".format(len(executable), datetime.now() - start))
+            executable.append(res)
+        with open("{}.exec_res".format(file_path), "w") as f:
+            json.dump(executable, f)
+            logger.info("Saved to {}".format(f.name))
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "--data-file", help="file containing character sequences to execute",
-        type=str, default="./charseqs.json")
+        "--files", help="glob containing character sequences to execute",
+        type=str, default="*.json")
 
     args = parser.parse_args()
-    main(data_file=args.data_file)
+    main(data_file_glob=args.files)
