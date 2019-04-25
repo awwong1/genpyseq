@@ -74,6 +74,7 @@ def main(data_file_glob="", ngram_model="", output_name=""):
         "Length": [],
         "Parseability": [],
         "Executability": [],
+        "SequenceIndex": [],
     }
 
     data_files = glob(data_file_glob)
@@ -137,6 +138,7 @@ def main(data_file_glob="", ngram_model="", output_name=""):
             data_dict["Length"].append(length)
             data_dict["Parseability"].append(parseable)
             data_dict["Executability"].append(executable)
+            data_dict["SequenceIndex"].append(idx)
 
     with open(output_name, "w") as f:
         json.dump(data_dict, f)
