@@ -15,6 +15,8 @@ from glob import glob
 from datasets import TokenDataset
 
 def remove_start_end_chr(char_sequence):
+    if not char_sequence:
+        return char_sequence
     if char_sequence[0] == chr(2):
         char_sequence = char_sequence[1:]
     if char_sequence[-1] == chr(3):
