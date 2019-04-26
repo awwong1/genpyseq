@@ -16,19 +16,20 @@ def main(fitness_dict=""):
     # pixel char...
     df = df.replace("PixelcharGen", "PixelChar")
     # keys: Model Temperature Fitness Perplexity Length Parseability Executability
+    #describe(df[df.Model == "TokenGen"]["Fitness"])
 
     models = df.Model.unique()
 
     # ax = sns.violinplot(x="Model", y="Fitness", data=df, split=True)
-    SHOW_OVERALL_FITNESS = False
+    SHOW_OVERALL_FITNESS = True
     if SHOW_OVERALL_FITNESS:
         ax = sns.boxplot(
             x="Model", y="Fitness", data=df, order=["GitHub", "CharGen", "TokenGen", "PixelChar"])
         ax.set_yscale("log")
         plt.title("Distribution of Source Code Fitness")
         plt.xlabel("Source Code Origin")
-        plt.show()
-        # plt.savefig("fitness_distribution.pdf")
+        plt.savefig("fitness_distribution.pdf")
+        plt.clf()
 
     SHOW_CHARGEN_TEMPERATURE = True
     if SHOW_CHARGEN_TEMPERATURE:
@@ -39,10 +40,11 @@ def main(fitness_dict=""):
         plt.title("Recurrent CharGen Fitness by Temperature")
         plt.ylim(-0.05, None)
         plt.xlabel("Temperature")
-        plt.show()
-        # plt.savefig("chargen_temperature.pdf")
+        #plt.show()
+        plt.savefig("chargen_temp_fitness.pdf")
+        plt.clf()
 
-    SHOW_CHARGEN_PARSE_EXEC = False
+    SHOW_CHARGEN_PARSE_EXEC = True
     if SHOW_CHARGEN_PARSE_EXEC:
         ax = sns.countplot(x="Temperature", hue="Executability", data=df[df.Model == "CharGen"][df["Parseability"] == 1], palette=sns.color_palette("colorblind"))
         ax.legend_.texts[0]._text = "Parsed"
@@ -50,9 +52,11 @@ def main(fitness_dict=""):
         plt.title("Parseable and Executable CharGen Created Code Files")
         plt.xlabel("Temperature")
         plt.ylabel("Count")
-        plt.show()
+        #plt.show()
+        plt.savefig("chargen_temp_parse_exec.pdf")
+        plt.clf()
 
-    SHOW_TOKENGEN_TEMPERATURE = False
+    SHOW_TOKENGEN_TEMPERATURE = True
     if SHOW_TOKENGEN_TEMPERATURE:
         ax = sns.boxplot(x="Temperature", y="Fitness",
                          data=df[df.Model == "TokenGen"])
@@ -61,10 +65,11 @@ def main(fitness_dict=""):
         plt.title("Recurrent TokenGen Fitness by Temperature")
         plt.ylim(-0.05, None)
         plt.xlabel("Temperature")
-        plt.show()
-        # plt.savefig("chargen_temperature.pdf")
+        # plt.show()
+        plt.savefig("tokengen_temp_fitness.pdf")
+        plt.clf()
 
-    SHOW_TOKENGEN_PARSE_EXEC = False
+    SHOW_TOKENGEN_PARSE_EXEC = True
     if SHOW_TOKENGEN_PARSE_EXEC:
         ax = sns.countplot(x="Temperature", hue="Executability", data=df[df.Model == "TokenGen"][df["Parseability"] == 1], palette=sns.color_palette("colorblind"))
         ax.legend_.texts[0]._text = "Parsed"
@@ -72,8 +77,9 @@ def main(fitness_dict=""):
         plt.title("Parseable and Executable TokenGen Created Code Files")
         plt.xlabel("Temperature")
         plt.ylabel("Count")
-        plt.show()
-
+        #plt.show()
+        plt.savefig("tokengen_temp_parse_exec.pdf")
+        plt.clf()
 
     print()
 

@@ -126,7 +126,7 @@ def main(
                 logger.info("Saved {} samples to {}".format(
                     generator_sample_amount, generator_output_file))
         else:
-            logger.info("train or generate not specified? (See --help)")
+            neural_network_info(nn)
     elif representation == "token":
         dataset = TokenDataset(max_window_size=window_size,
                                data_path=data_path,
@@ -187,7 +187,13 @@ def main(
                 logger.info("Saved {} samples to {}".format(
                     generator_sample_amount, generator_output_file))
         else:
-            logger.info("train or generate not specified? (See --help)")
+            neural_network_info(nn)
+
+
+def neural_network_info(nn):
+    logger.info("Num Parameters: {}".format(
+        sum([p.numel() for p in nn.parameters()])))
+    logger.info("train or generate not specified? (See --help)")
 
 
 class ArgparseRange(object):

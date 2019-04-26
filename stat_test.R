@@ -13,5 +13,8 @@ print(kruskal.test(Fitness ~ Temperature, data=chargen))
 tokengen <- df[df$Model == "TokenGen",]
 print(kruskal.test(Fitness ~ Temperature, data=tokengen))
 
-print(nrow(tokengen[(tokengen$Executability==1),]))
-print(tokengen[order(-tokengen$Fitness),])
+#print(nrow(tokengen[(tokengen$Parseability==1),]))
+#print(nrow(tokengen[(tokengen$Executability==1),]))
+#print(nrow(tokengen[(tokengen$Executability==1)&(tokengen$Parseability==1),]))
+parsed_tokengen <- tokengen[(tokengen$Parseability==1),]
+print(parsed_tokengen[order(-parsed_tokengen$Fitness),])

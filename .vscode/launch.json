@@ -67,17 +67,13 @@
             "console": "externalTerminal"
         },
         {
-            "name": "GenPySeq: Char Train",
+            "name": "GenPySeq: Char Info",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "args": [
-                "char",
-                "--train",
-                "--learning-rate", "0.001",
-                "--print-every-iter", "1",
-                "--recurrent-type", "LSTM"
+                "char"
             ]
         },     {
             "name": "GenPySeq: Char Generation",
